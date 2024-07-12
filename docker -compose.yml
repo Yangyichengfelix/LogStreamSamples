@@ -1,0 +1,61 @@
+version: '0.1.1'
+services:
+  # db:
+  #   image: yobasystems/alpine-mariadb
+  #   container_name: db
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: 123456
+  #     MYSQL_DATABASE: mac2s
+  #     MYSQL_USER: admin
+  #     MYSQL_PASSWORD: 123456
+  #   expose:
+  #     - 3306
+  #   ports:
+  #     - '3306:3306'
+  #   volumes:
+  #     - /var/lib/mysql:/var/lib/mysql
+  #   restart: always
+  #   networks:
+  #     - dbpath
+  #     - clientpath
+  mac2sapi:
+    container_name: mac2sapi
+    depends_on:
+      - db
+    build: ./Mac2sAPI/
+    ports: 
+      - '8081:80'
+
+    restart: always
+    links:
+      - db
+    networks:
+      - dbpath
+
+  loguploader:
+    container_name: loguploader
+    depends_on:
+      - mac2sapi
+    build: ./LogUploader/
+    restart: always
+    links:
+      - mac2sapi
+    networks:
+      - clientpath
+  # loggenerator:
+  #   container_name: loggenerator
+  #   depends_on:
+  #     - mac2sapi
+  #   build: 
+  #     context: ./LogGenerator/
+  #   restart: always
+  #   links:
+  #     - mac2sapi
+  #   networks:
+  #     - clientpath
+
+networks:
+  dbpath:
+    driver: bridge
+  clientpath: 
+    driver: bridge

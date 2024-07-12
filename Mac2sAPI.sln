@@ -1,0 +1,55 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.32002.185
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Mac2sAPI", "Mac2sAPI\Mac2sAPI.csproj", "{3575F287-A3DB-4475-B3F6-E9B6F40A4AAA}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Blazor_mac2c", "Blazor_mac2c\Blazor_mac2c.csproj", "{29B3A26A-8104-4E03-BF97-01329942064C}"
+	ProjectSection(ProjectDependencies) = postProject
+		{3575F287-A3DB-4475-B3F6-E9B6F40A4AAA} = {3575F287-A3DB-4475-B3F6-E9B6F40A4AAA}
+	EndProjectSection
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LogGenerator", "LogGenerator\LogGenerator.csproj", "{2F8A314F-8E89-458B-8928-A5CA5A0B3AF8}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LogUploader", "LogUploader\LogUploader.csproj", "{1577B971-241C-431C-9AD2-EA2E01699EA2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		ERMO|Any CPU = ERMO|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3575F287-A3DB-4475-B3F6-E9B6F40A4AAA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3575F287-A3DB-4475-B3F6-E9B6F40A4AAA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3575F287-A3DB-4475-B3F6-E9B6F40A4AAA}.ERMO|Any CPU.ActiveCfg = Debug|Any CPU
+		{3575F287-A3DB-4475-B3F6-E9B6F40A4AAA}.ERMO|Any CPU.Build.0 = Debug|Any CPU
+		{3575F287-A3DB-4475-B3F6-E9B6F40A4AAA}.Release|Any CPU.ActiveCfg = Debug|Any CPU
+		{3575F287-A3DB-4475-B3F6-E9B6F40A4AAA}.Release|Any CPU.Build.0 = Debug|Any CPU
+		{29B3A26A-8104-4E03-BF97-01329942064C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{29B3A26A-8104-4E03-BF97-01329942064C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{29B3A26A-8104-4E03-BF97-01329942064C}.ERMO|Any CPU.ActiveCfg = Debug|Any CPU
+		{29B3A26A-8104-4E03-BF97-01329942064C}.ERMO|Any CPU.Build.0 = Debug|Any CPU
+		{29B3A26A-8104-4E03-BF97-01329942064C}.Release|Any CPU.ActiveCfg = Debug|Any CPU
+		{29B3A26A-8104-4E03-BF97-01329942064C}.Release|Any CPU.Build.0 = Debug|Any CPU
+		{2F8A314F-8E89-458B-8928-A5CA5A0B3AF8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2F8A314F-8E89-458B-8928-A5CA5A0B3AF8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2F8A314F-8E89-458B-8928-A5CA5A0B3AF8}.ERMO|Any CPU.ActiveCfg = Debug|Any CPU
+		{2F8A314F-8E89-458B-8928-A5CA5A0B3AF8}.ERMO|Any CPU.Build.0 = Debug|Any CPU
+		{2F8A314F-8E89-458B-8928-A5CA5A0B3AF8}.Release|Any CPU.ActiveCfg = Debug|Any CPU
+		{2F8A314F-8E89-458B-8928-A5CA5A0B3AF8}.Release|Any CPU.Build.0 = Debug|Any CPU
+		{1577B971-241C-431C-9AD2-EA2E01699EA2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1577B971-241C-431C-9AD2-EA2E01699EA2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1577B971-241C-431C-9AD2-EA2E01699EA2}.ERMO|Any CPU.ActiveCfg = Debug|Any CPU
+		{1577B971-241C-431C-9AD2-EA2E01699EA2}.ERMO|Any CPU.Build.0 = Debug|Any CPU
+		{1577B971-241C-431C-9AD2-EA2E01699EA2}.Release|Any CPU.ActiveCfg = Debug|Any CPU
+		{1577B971-241C-431C-9AD2-EA2E01699EA2}.Release|Any CPU.Build.0 = Debug|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {CA4C02A3-A02E-4653-B028-248BD9A21E50}
+	EndGlobalSection
+EndGlobal
