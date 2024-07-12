@@ -1,0 +1,293 @@
+﻿@using Microsoft.AspNetCore.Authorization
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@using Radzen.Blazor
+@layout RootLayout
+@inherits LayoutComponentBase
+
+<Layout Sider="true">
+    <LayoutSider>
+        <LayoutSiderContent>
+            <Bar Breakpoint="Breakpoint.Desktop" NavigationBreakpoint="Breakpoint.Mobile" ThemeContrast="ThemeContrast.Dark" Background="Background.Info"
+                 Mode="BarMode.VerticalInline" CollapseMode="BarCollapseMode.Small">
+                <BarToggler />
+                <BarBrand>
+                    <BarItem>
+                        <BarLink To="">
+                            @*<BarIcon IconName="customIcon" />*@
+                            <BarIcon IconName="IconName.Eye" />
+                            Mac2s Monitor
+                        </BarLink>
+                    </BarItem>
+                </BarBrand>
+                <BarMenu>
+                    <BarStart>
+                        <BarLabel></BarLabel>
+                        <BarItem>
+                            <BarLink To="">
+                                <BarIcon IconName="IconName.Dashboard" />
+                                Dashboard
+                            </BarLink>
+                        </BarItem>
+                        <BarItem>
+                            @*<BarDropdown @bind-Visible="uiElementsVisible">*@
+                                <BarDropdown >
+                                    <BarDropdownToggle>
+                                        <BarIcon IconName="IconName.Book" />
+                                          Sensors
+                                    </BarDropdownToggle>
+                                <BarDropdownMenu Background="Background.Primary" ThemeContrast="ThemeContrast.Dark">
+
+                                    <BarDropdownItem To="sensors">
+                                        Individual
+                                    </BarDropdownItem>
+                                    <BarDropdownItem To="recentvalue">
+                                        Recent Value
+                                    </BarDropdownItem>
+                                </BarDropdownMenu>                     
+                                </BarDropdown>
+                        </BarItem>
+                        <BarItem>
+                            <BarDropdown>
+                                <BarDropdownToggle>
+                                  <BarIcon IconName="IconName.Stream" />
+                                    Status
+                                </BarDropdownToggle>
+                                <BarDropdownMenu Background="Background.Primary" ThemeContrast="ThemeContrast.Dark">
+                                    <BarDropdownItem To="status">
+                                         Status
+                                    </BarDropdownItem>
+                                    <BarDropdownItem To="statusgroup">
+                                        Activity categories
+                                    </BarDropdownItem>
+                                   
+                                </BarDropdownMenu>
+                            </BarDropdown>
+                        </BarItem>
+                        <BarItem>
+                            <BarDropdown>
+                                <BarDropdownToggle>
+                                  <BarIcon IconName="IconName.Exclamation" />
+                                    Alerts
+                                </BarDropdownToggle>
+                                <BarDropdownMenu Background="Background.Primary" ThemeContrast="ThemeContrast.Dark">
+                                    <BarDropdownItem To="alarms">
+                                        Alert details
+
+                                    </BarDropdownItem>
+
+                                   
+                                </BarDropdownMenu>
+                            </BarDropdown>
+                        </BarItem>
+                        <BarItem>
+                            <BarDropdown>
+                                <BarDropdownToggle>
+                                  <BarIcon IconName="IconName.History" />
+                                    Status history
+                                </BarDropdownToggle>
+                                <BarDropdownMenu Background="Background.Primary" ThemeContrast="ThemeContrast.Dark">
+                                    <BarDropdownItem To="historyreport">
+                                        History report
+
+                                    </BarDropdownItem>
+
+                                   
+                                </BarDropdownMenu>
+                            </BarDropdown>
+                        </BarItem>
+                        <BarItem>
+                            <BarDropdown>
+                                <BarDropdownToggle>
+                                  <BarIcon IconName="IconName.Wrench" />
+                                    Settings
+                                </BarDropdownToggle>
+                                <BarDropdownMenu Background="Background.Primary" ThemeContrast="ThemeContrast.Dark">
+                                    <BarDropdownItem To="gaugeparameter">
+                                         Gauges configurations
+                                    </BarDropdownItem>
+                                    <BarDropdownItem To="scheduleparameter">
+                                         Schedule management
+                                    </BarDropdownItem>
+                                    <BarDropdownItem To="uploadimage">
+                                         Product photo
+                                    </BarDropdownItem>   
+                                </BarDropdownMenu>
+                            </BarDropdown>
+@*                            <BarDropdown>
+                                <BarDropdownToggle><Icon Name="IconName.Tint" /> Theme</BarDropdownToggle>
+                                <BarDropdownMenu Style="padding: 15px; min-width:550px;" RightAligned="false">
+                                    <Row>
+                                        <Column Margin="Margin.Is2.FromBottom">
+                                            <Field>
+                                                <Switch TValue="bool" Checked="@(Theme?.Enabled == true)" CheckedChanged="@OnThemeEnabledChanged">Theme enabled</Switch>
+                                            </Field>
+                                        </Column>
+                                    </Row>
+                                    
+                                    <Row>
+                                        <Column>
+                                            <Container Fluid="true">
+                                                <ThemeColorSelector Value="@(Theme?.ColorOptions?.Primary)" ValueChanged="@OnThemeColorChanged"></ThemeColorSelector>
+                                            </Container>
+                                        </Column>
+                                    </Row>
+                                </BarDropdownMenu>
+                            </BarDropdown>*@
+                        </BarItem> 
+                    </BarStart>
+                    <BarEnd>
+                        <AuthorizeView>
+                            <Authorized>
+                                <BarItem>
+                                    <BarDropdown>
+                                        <BarDropdownToggle>
+                                          <BarIcon IconName="IconName.User" />
+                                            Account administration
+                                        </BarDropdownToggle>
+                                        <BarDropdownMenu Background="Background.Primary" ThemeContrast="ThemeContrast.Dark">
+                                            <BarDropdownItem To="changepassword">
+                                                <BarIcon IconName="IconName.Key"/>
+                                                change password
+                                            </BarDropdownItem> 
+                                            <BarDropdownItem To="logout">
+                                                <BarIcon IconName="IconName.Backspace"/>
+                                                Log out
+                                            </BarDropdownItem>
+                                   
+                                        </BarDropdownMenu>
+                                    </BarDropdown>
+                                    </BarItem>
+                            </Authorized>
+                            <NotAuthorized>
+                                <BarItem>
+                                    <BarDropdown>
+                                        <BarDropdownToggle>
+                                          <BarIcon IconName="IconName.User" />
+                                          Log in  
+                                        </BarDropdownToggle>
+                                        <BarDropdownMenu Background="Background.Primary" ThemeContrast="ThemeContrast.Dark">
+                                            <BarDropdownItem To="login">
+                                                <BarIcon IconName="IconName.User"/>
+                                                Log in
+                                            </BarDropdownItem>
+                                            <BarDropdownItem To="forgetpassword">
+                                                <BarIcon IconName="IconName.Frown"/>
+                                                Find my password
+                                            </BarDropdownItem>
+                                            <BarDropdownItem To="resetforgottenpassword">
+                                                <BarIcon IconName="IconName.Redo"/>
+                                                Reset password
+                                            </BarDropdownItem>
+                                        </BarDropdownMenu>
+                                    </BarDropdown>
+                                    </BarItem>
+                            </NotAuthorized>
+                        </AuthorizeView>
+                        <BarItem/>
+                        <BarItem/>
+                        <BarItem>
+                            <BarLink To="https://www.ermo-tech.com/">ERMO-Tech</BarLink>
+                        </BarItem>
+                    </BarEnd>
+                </BarMenu>
+            </Bar>
+        </LayoutSiderContent>
+    </LayoutSider>
+    <Layout>
+@*        <LayoutHeader Fixed="false" >
+            <Bar @bind-Visible="@topbarVisible" Breakpoint="Breakpoint.Desktop" NavigationBreakpoint="Breakpoint.Mobile" Background="Background.Info" ThemeContrast="ThemeContrast.Dark" CollapseMode="BarCollapseMode.Hide">
+                <BarToggler />
+                <BarBrand>
+                    <BarItem>
+                        <BarLink To="">
+                            <BarIcon IconName="IconName.Dashboard" />
+                            Mac2s data visualization
+                        </BarLink>
+                    </BarItem>
+                </BarBrand>
+                <BarToggler />
+                <BarMenu>
+                    <BarStart>
+                        
+                    </BarStart>
+                    <BarEnd>
+
+                    </BarEnd>
+                </BarMenu>
+            </Bar>
+        </LayoutHeader>*@
+        <LayoutContent Padding="Padding.Is4.OnX" >
+            @Body
+        </LayoutContent>
+    </Layout>
+</Layout>
+<RadzenDialog/>
+<RadzenNotification/>
+<RadzenContextMenu/>
+<RadzenTooltip/>
+@code{void OnThemeEnabledChanged(bool value)
+            {
+                if (Theme == null)
+                    return;
+
+                Theme.Enabled = value;
+
+                Theme.ThemeHasChanged();
+            }
+
+            void OnGradientChanged(bool value)
+            {
+                if (Theme == null)
+                    return;
+
+                Theme.IsGradient = value;
+
+                Theme.ThemeHasChanged();
+            }
+
+            void OnRoundedChanged(bool value)
+            {
+                if (Theme == null)
+                    return;
+
+                Theme.IsRounded = value;
+
+                Theme.ThemeHasChanged();
+            }
+
+            void OnThemeColorChanged(string value)
+            {
+                if (Theme == null)
+                    return;
+
+                if (Theme.ColorOptions == null)
+                    Theme.ColorOptions = new ThemeColorOptions();
+
+                if (Theme.BackgroundOptions == null)
+                    Theme.BackgroundOptions = new ThemeBackgroundOptions();
+
+                if (Theme.TextColorOptions == null)
+                    Theme.TextColorOptions = new ThemeTextColorOptions();
+
+                Theme.ColorOptions.Primary = value;
+                Theme.BackgroundOptions.Info = value;
+                Theme.TextColorOptions.Primary = value;
+
+                if (Theme.InputOptions == null)
+                    Theme.InputOptions = new ThemeInputOptions();
+
+                //Theme.InputOptions.Color = value;
+                Theme.InputOptions.CheckColor = value;
+                Theme.InputOptions.SliderColor = value;
+
+                Theme.ThemeHasChanged();
+            }
+
+            private bool topbarVisible = false;
+            private bool uiElementsVisible = true;
+
+            [CascadingParameter] protected Theme Theme { get; set; }
+
+            RenderFragment customIcon =@<img src="/img/LOGO.png" style="width:32px; height: 32px" />;
+}

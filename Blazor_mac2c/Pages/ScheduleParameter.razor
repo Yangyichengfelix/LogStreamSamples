@@ -1,0 +1,207 @@
+﻿@page "/ScheduleParameter"
+@using System.Globalization
+@using System.Net.Http
+@using Radzen
+@using Radzen.Blazor
+@using Blazorise.Components
+@using System.Linq.Dynamic.Core
+@using Blazor_mac2c.Models
+@using Blazor_mac2c.Endpoint
+@using Blazor_mac2c.Contracts
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject HttpClient client
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager _navManager
+@inject IPageProgressService PageProgressService
+@inject IJSRuntime JsRuntime
+@inject IScheduleParameterRepository _scheduleRepo
+@inject NotificationService NotificationService
+<PageTitle>Schedule settings </PageTitle>
+
+@if (schedules == null)
+{
+    <LoadingScreen></LoadingScreen>
+}
+else
+{
+    
+
+<div class="container">
+    <RadzenFieldset Style=" margin: 40px auto; border-radius:10px; background-color:rgba(220,220,220,0.6);" AllowCollapse="true" >
+        <HeaderTemplate>
+            <span class="d-inline-flex align-items-center align-middle">
+                <RadzenIcon Icon="build" Class="mr-1" /><b>Schedule settings</b>
+            </span> 
+        </HeaderTemplate>
+        <ChildContent>
+            <Addons>
+                <Addon AddonType="AddonType.Body">
+                    <TimePicker @bind-Time="@selectedStartTime" @ref="@timePickerStart" TValue="TimeSpan?" TimeAs24hr=true Placeholder="Start" />
+                </Addon>
+                <Addon AddonType="AddonType.End">
+                    <Button Color="Color.Info" Clicked="@(()=>timePickerStart.ToggleAsync())">
+                        <Icon Name="IconName.CalendarDay" />
+                    </Button>
+                </Addon>
+            </Addons>
+                <Addons>
+                <Addon AddonType="AddonType.Body">
+                    <TimePicker @bind-Time="@selectedEndTime" @ref="@timePickerEnd" TValue="TimeSpan?" TimeAs24hr=true Placeholder="End" />
+                </Addon>
+                <Addon AddonType="AddonType.End">
+                    <Button Color="Color.Info" Clicked="@(()=>timePickerEnd.ToggleAsync())">
+                        <Icon Name="IconName.CalendarDay" />
+                    </Button>
+                </Addon>
+            </Addons>
+            <div class="row px-3">
+                <div class="col-md-4 col-lg-4 p-3"/>
+                <div class="col-md-8 col-lg-8 p-3">
+                    <RadzenButton ButtonStyle="ButtonStyle.Info"  Text="Save" Click="@(args=>ScheduleSettingValidate(new NotificationMessage 
+                                { Severity = NotificationSeverity.Info, 
+                                Summary = "Update", 
+                                Detail = "Update schedule setting", 
+                                Duration = 4000 }))" Class="w-100" BusyText="Invoking ..." IsBusy=@busy  />
+                </div>
+            </div>
+        </ChildContent>
+            
+    </RadzenFieldset>
+    <SelectList TItem="ScheduleSelectModel"
+            TValue="int"
+            Data="@ScheduleData"
+            TextField="@((item)=>item.Name)"
+            ValueField="@((item)=>item.Id)"
+            SelectedValue="@selectedListValue"
+            SelectedValueChanged="@ScheduleChangedHandler"
+            DefaultItemText="Choose your schedule" />
+
+@*            <p>
+                <b>CurrentCulture</b>: @CultureInfo.CurrentCulture
+            </p>*@
+</div>
+}
+@code{
+    public class ScheduleSelectModel
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public TimeSpan Start { get; set; }
+        public TimeSpan End { get; set; }
+
+    }
+    protected IEnumerable<ScheduleParameterModel> schedules;
+    int selectedListValue { get; set; } = 0;
+    ScheduleParameterModel selectModel;
+    async Task  ScheduleChangedHandler( int newValue )
+    {
+        selectedListValue = newValue;
+        selectModel = await _scheduleRepo.Get(Endpoint.ScheduleParameterEnpoint+"/", selectedListValue);
+        selectedStartTime = selectModel.Start;
+        selectedEndTime = selectModel.End;
+        StateHasChanged();
+    }
+
+    protected ScheduleParameterModel scheduleParameterUpdateModel;
+    protected ScheduleParameterModel scheduleParameterSelection;
+    protected TimePicker<TimeSpan?> timePickerEnd;
+    protected TimePicker<TimeSpan?> timePickerStart;
+    IEnumerable<ScheduleSelectModel> ScheduleData;
+    protected TimeSpan? selectedStartTime;
+    protected TimeSpan? selectedEndTime;
+
+    protected string startValue;
+    protected string endValue;
+    protected bool busy;
+    private bool isSuccess = true;
+    #region loading
+    protected Task SetPageProgressIndeterminate()
+    {
+        return PageProgressService.Go(null, options => { options.Color = Color.Warning; });
+    }
+    protected Task SetPageProgressHidden()
+    {
+        return PageProgressService.Go(-1);
+    }
+    protected async override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            schedules=await _scheduleRepo.GetAllScheduleParameter(Endpoint.ScheduleParameterEnpoint);
+            ScheduleData = schedules.Select( x => new ScheduleSelectModel { Name = x.Name, Id = x.Id, Start=x.Start, End=x.End } );
+            StateHasChanged();
+        }
+        //gauges=await _gaugeRepo.GetAllGaugeParameter(Endpoint.GaugeParameterEnpoint);
+        //gaugeParameterModel = gauges.First();
+        //InvokeAsync(StateHasChanged);
+    }
+    #endregion
+    //protected void OnStartChanged()
+
+    protected async Task ScheduleSettingValidate(NotificationMessage message)
+    {
+
+        busy=true;
+        SetPageProgressIndeterminate();
+        await UpdateScheduleParameter();
+        NotificationService.Notify(message);
+        SetPageProgressHidden();
+        busy=false;
+    }
+
+    private async Task UpdateScheduleParameter()
+    {
+        ScheduleParameterModel scheduleParameterUpdateModel = new ScheduleParameterModel
+            {
+
+                Id = selectModel.Id,
+                Name = selectModel.Name,
+                Start = selectedStartTime ?? TimeSpan.Zero,
+                End = selectedEndTime ?? TimeSpan.Zero
+            };
+
+
+        if (scheduleParameterUpdateModel.Start >= scheduleParameterUpdateModel.End)
+        {
+            NotificationMessage warn = new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Warning,
+                    Summary = $"{scheduleParameterUpdateModel.Name} Time range invalide",
+                    Detail = $"{scheduleParameterUpdateModel.Start} must be set before {scheduleParameterUpdateModel.End}",
+                    Duration = 4000
+                };
+            NotificationService.Notify(warn);
+        }
+
+        else
+        {
+                    //Console.WriteLine($"{gaugeParameterModel.Name},{gaugeParameterModel.Id}, {gaugeParameterModel.step}, start {gaugeParameterModel.StartAngle}, end {gaugeParameterModel.EndAngle}" );
+            isSuccess = await _scheduleRepo.Update(Endpoint.ScheduleParameterEnpoint+ "/", scheduleParameterUpdateModel, scheduleParameterUpdateModel.Id);
+            if (isSuccess)
+            {
+                NotificationMessage success = new NotificationMessage
+                    {
+                        Severity = NotificationSeverity.Success,
+                        Summary = $"{scheduleParameterUpdateModel.Name} Setting updated",
+                        Detail = $"{scheduleParameterUpdateModel.Name} Setting updated",
+                        Duration = 4000
+                    };
+                NotificationService.Notify(success);
+            }
+            else
+            {
+                NotificationMessage failure = new NotificationMessage
+                    {
+                        Severity = NotificationSeverity.Error,
+                        Summary = $"Something wrong when trying to update {scheduleParameterUpdateModel.Name} settings ",
+                        Detail = $"Something wrong when trying to update {scheduleParameterUpdateModel.Name} settings ",
+                        Duration = 4000
+                    };
+                NotificationService.Notify(failure);
+            }
+        }
+
+    }
+}

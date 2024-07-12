@@ -1,0 +1,399 @@
+﻿@page "/recentvalue"
+@using System.Globalization
+@using Radzen
+@using Radzen.Blazor
+@using System.Linq.Dynamic.Core
+@using Blazor_mac2c.Models
+@using Blazor_mac2c.Endpoint
+@using Blazor_mac2c.Contracts
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Blazorise.Charts
+@using Blazorise.Charts.Streaming
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager _navManager
+@inject ISensorPlRepository _sensorPl
+@inject ISensorUniqueRepository _sensorUnique
+@inject ILogDurationRepository _logDuration
+@inject IJSRuntime JsRuntime
+
+@if(cycletime==null){
+    <LoadingScreen/>
+}
+else{
+
+
+    <Row>
+        <Column ColumnSize="ColumnSize.IsHalf.OnWidescreen.IsFull.OnDesktop.IsFull.OnTablet" >
+            <Card Margin="Margin.Is4.OnY">
+                <CardHeader>
+                    Sensor 1 recent value
+                </CardHeader>
+                <CardBody>
+                    <LineChart @ref="s1LineChart" TItem="LiveDataPoint" OptionsObject="@s1LineChartOptions">
+                        <ChartStreaming TItem="LiveDataPoint"
+                                    Options=" new ChartStreamingOptions
+                                            {
+                                                Delay = 0,
+                                                Duration = 80000,
+                                                FrameRate = 60,
+                                                Refresh = 8000
+                                            }"
+                                    Refreshed="@OnS1Refreshed" />
+                    </LineChart>
+                </CardBody>
+            </Card>
+        </Column>
+
+        <Column ColumnSize="ColumnSize.IsHalf.OnWidescreen.IsFull.OnDesktop.IsFull.OnTablet" >
+            <Card Margin="Margin.Is4.OnY">
+                <CardHeader>
+                    Sensor 2 recent value
+                </CardHeader>
+                <CardBody>
+                    <LineChart @ref="s2LineChart" TItem="LiveDataPoint" OptionsObject="@s1LineChartOptions">
+                        <ChartStreaming TItem="LiveDataPoint"
+                                    Options="new ChartStreamingOptions { Delay = 0, Refresh=7000, FrameRate=60,Duration=70000 }"
+                                    Refreshed="@OnS2Refreshed" />
+                    </LineChart>
+                </CardBody>
+            </Card>
+
+        </Column>
+
+    </Row>
+
+    <Row>
+        <Column ColumnSize="ColumnSize.IsHalf.OnWidescreen.IsFull.OnDesktop.IsFull.OnTablet" >
+
+            <Card Margin="Margin.Is4.OnY">
+                <CardHeader>
+                    Sensor 3 recent value
+                </CardHeader>
+                <CardBody>
+                    <LineChart @ref="s3LineChart" TItem="LiveDataPoint" OptionsObject="@s1LineChartOptions">
+                        <ChartStreaming TItem="LiveDataPoint"
+                                    Options="new ChartStreamingOptions { Delay = 0, Refresh=7000, FrameRate=60,Duration=70000 }"
+                                    Refreshed="@OnS3Refreshed" />
+                    </LineChart>
+                </CardBody>
+            </Card>
+
+        </Column>
+        <Column ColumnSize="ColumnSize.IsHalf.OnWidescreen.IsFull.OnDesktop.IsFull.OnTablet" >
+
+            <Card Margin="Margin.Is4.OnY">
+                <CardHeader>
+                    Sensor 4 recent value
+                </CardHeader>
+                <CardBody>
+                    <LineChart @ref="s4LineChart" TItem="LiveDataPoint" OptionsObject="@s1LineChartOptions">
+                        <ChartStreaming TItem="LiveDataPoint"
+                                    Options="new ChartStreamingOptions { Delay = 0, Refresh=14000, FrameRate=60,Duration=70000 }"
+                                    Refreshed="@OnS4Refreshed" />
+                    </LineChart>
+                </CardBody>
+            </Card>
+        </Column>
+    </Row>
+
+
+    <Row>
+
+        <Column ColumnSize="ColumnSize.IsHalf.OnWidescreen.IsFull.OnDesktop.IsFull.OnTablet" >
+
+            <Card Margin="Margin.Is4.OnY">
+                <CardHeader>
+                    Sensor 5 recent value
+                </CardHeader>
+                <CardBody>
+                    <LineChart @ref="s5LineChart" TItem="LiveDataPoint" OptionsObject="@s1LineChartOptions">
+                        <ChartStreaming TItem="LiveDataPoint"
+                                    Options="new ChartStreamingOptions { Delay = 0, Refresh=14000, FrameRate=60,Duration=70000 }"
+                                    Refreshed="@OnS5Refreshed" />
+                    </LineChart>
+                </CardBody>
+            </Card>
+        </Column>
+        <Column ColumnSize="ColumnSize.IsHalf.OnWidescreen.IsFull.OnDesktop.IsFull.OnTablet" >
+
+            <Card Margin="Margin.Is4.OnY">
+                <CardHeader>
+                    Sensor PJ recent value
+                </CardHeader>
+                <CardBody>
+                    <LineChart @ref="PlLineChart" TItem="LiveDataPoint" OptionsObject="@s1LineChartOptions">
+                        <ChartStreaming TItem="LiveDataPoint"
+                                    Options="@chartStreamingOptions"
+                                    Refreshed="@OnPlRefreshed" />
+                    </LineChart>
+                </CardBody>
+            </Card>
+        </Column>
+    </Row>
+}
+
+@code{
+    LineChart<LiveDataPoint> s1LineChart;
+    LineChart<LiveDataPoint> s2LineChart;
+    LineChart<LiveDataPoint> s3LineChart;
+    LineChart<LiveDataPoint> s4LineChart;
+    LineChart<LiveDataPoint> s5LineChart;
+    LineChart<LiveDataPoint> PlLineChart;
+
+    public HttpClient _client { get; set; }
+
+    //Random random = new Random( DateTime.Now.Millisecond );
+    private IList<SensorUniqueModel> models;
+    private SensorUniqueModel s1;
+    private SensorUniqueModel s2;
+    private SensorUniqueModel s3;
+    private SensorUniqueModel s4;
+    private SensorUniqueModel s5;
+    private SensorBaseModel pl;
+    [Parameter]
+    public ChartStreamingOptions chartStreamingOptions { get; set; }
+    [Parameter]
+    public int? cycletime { get; set; } = 1;
+
+    //string[] Labels = { "Red", "Blue", "Yellow", "Green", "Purple", "Orange" };
+    string[] Labels = { };
+
+    List<string> backgroundColors = new List<string> { ChartColor.FromRgba( 220, 20, 60, 0.2f ), ChartColor.FromRgba( 54, 162, 235, 0.2f ), ChartColor.FromRgba( 255, 206, 86, 0.2f ), ChartColor.FromRgba( 75, 192, 192, 0.2f ), ChartColor.FromRgba( 153, 102, 255, 0.2f ), ChartColor.FromRgba( 255, 159, 64, 0.2f ) };
+    List<string> borderColors = new List<string> { ChartColor.FromRgba( 255, 99, 132, 1f ), ChartColor.FromRgba( 54, 162, 235, 1f ), ChartColor.FromRgba( 255, 206, 86, 1f ), ChartColor.FromRgba( 75, 192, 192, 1f ), ChartColor.FromRgba( 153, 102, 255, 1f ), ChartColor.FromRgba( 255, 159, 64, 1f ) };
+
+    public struct LiveDataPoint
+    {
+        public object X { get; set; }
+
+        public object Y { get; set; }
+    }
+
+    object s1LineChartOptions = new
+    {
+        Scales = new
+        {
+            Y = new
+            {
+                Title = new
+                { Display = true,Text = "Recent value"},
+            }
+        },
+        Tooltips = new{Mode = "nearest",Intersect = false },
+        Hover = new{Mode = "nearest",Intersect = false}
+    };
+    public override Task SetParametersAsync(ParameterView parameters)
+    {
+        //Console.WriteLine("SetParametersAsync");
+        //cycletime = 1;
+        //try
+        //{
+        //    Task<int?> r = _logDuration.GetCycleTime(Endpoint.CycleTimeEndpoint + "/");   
+        //    r.GetAwaiter().OnCompleted(() =>
+        //     {
+        //         Console.WriteLine("State: "+r.IsCompletedSuccessfully);
+        //         Console.WriteLine(cycletime);
+        //        cycletime = r.Result;
+        //         Console.WriteLine(cycletime);           
+
+        //     });
+        //             //StateHasChanged();
+        //}
+        //catch(Exception e)
+        //{
+        //    Console.WriteLine(e);    
+        //}
+
+        //StateHasChanged();
+        return base.SetParametersAsync(parameters);
+    }
+    protected override async Task OnInitializedAsync ()
+    {
+                         chartStreamingOptions = new ChartStreamingOptions
+                     {
+                         Delay = 0,
+                         Duration = 80000,
+                         FrameRate = 60,
+                         Refresh = 8000
+                     };           
+        base.OnInitializedAsync();
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        
+    }
+    protected override async Task OnAfterRenderAsync( bool firstRender )
+    {
+        if ( firstRender )
+        {
+
+
+            await Task.WhenAll(
+                HandleRedraw(s1LineChart, GetLineChartDataset1),
+                HandleRedraw(s2LineChart, GetLineChartDataset2),
+                HandleRedraw(s3LineChart, GetLineChartDataset3),
+                HandleRedraw(s4LineChart, GetLineChartDataset4),
+                HandleRedraw(s5LineChart, GetLineChartDataset5),
+                HandleRedraw(PlLineChart, GetLineChartDatasetPL)
+            );
+
+        }
+    }
+
+    async Task HandleRedraw<TDataSet, TItem, TOptions, TModel>( BaseChart<TDataSet, TItem, TOptions, TModel> chart, params Func<TDataSet>[] getDataSets )
+        where TDataSet : ChartDataset<TItem>
+        where TOptions : ChartOptions
+        where TModel : ChartModel
+    {
+        await chart.Clear();
+        // model=await _sensorUnique.GetS1RealTime(Endpoint.Senors1RealtimeEndpoint);
+
+        await chart.AddLabelsDatasetsAndUpdate( Labels, getDataSets.Select( x => x.Invoke() ).ToArray() );
+    }
+
+    private LineChartDataset<LiveDataPoint> GetLineChartDataset1()
+    {
+        return new LineChartDataset<LiveDataPoint>
+        {
+            Data = new List<LiveDataPoint>(),
+            Label = "Sensor 1",
+            BackgroundColor = backgroundColors[0],
+            BorderColor = borderColors[0],
+            Fill = true,
+            Tension  = 0,
+            Stepped=true,
+            PointRadius=5
+        };
+    }
+    private LineChartDataset<LiveDataPoint> GetLineChartDataset2()
+    {
+        return new LineChartDataset<LiveDataPoint>
+        {
+            Data = new List<LiveDataPoint>(),
+            Label = "Sensor 2",
+            BackgroundColor = backgroundColors[1],
+            BorderColor = borderColors[1],
+            Fill = false,
+            PointRadius=5,
+            Tension  = 4,
+            Stepped=true
+        };
+    }
+    private LineChartDataset<LiveDataPoint> GetLineChartDataset3()
+    {
+        return new LineChartDataset<LiveDataPoint>
+        {
+            Data = new List<LiveDataPoint>(),
+            Label = "Sensor 3",
+            BackgroundColor = backgroundColors[2],
+            BorderColor = borderColors[2],
+            Fill = false,
+            PointRadius=5,
+            Tension = 4,
+            Stepped=true
+        };
+    }
+    private LineChartDataset<LiveDataPoint> GetLineChartDataset4()
+    {
+        return new LineChartDataset<LiveDataPoint>
+        {
+            Data = new List<LiveDataPoint>(),
+            Label = "Sensor 4",
+            BackgroundColor = backgroundColors[3],
+            BorderColor = borderColors[3],
+            Fill = false,
+            PointRadius=5,
+            Tension = 4,
+            Stepped=true
+        };
+    }
+
+    private LineChartDataset<LiveDataPoint> GetLineChartDataset5()
+    {
+        return new LineChartDataset<LiveDataPoint>
+        {
+            Data = new List<LiveDataPoint>(),
+            Label = "Sensor 5",
+            BackgroundColor = backgroundColors[4],
+            BorderColor = borderColors[4],
+            Fill = false,
+            PointRadius=5,
+            Tension = 4,
+            Stepped=true
+        };
+    }
+        private LineChartDataset<LiveDataPoint> GetLineChartDatasetPL()
+    {
+        return new LineChartDataset<LiveDataPoint>
+        {
+            Data = new List<LiveDataPoint>(),
+            Label = "Sensor PL",
+            BackgroundColor = backgroundColors[5],
+            BorderColor = borderColors[5],
+            Fill = true,
+            PointRadius=5,
+            Tension = 4,
+            Stepped=true
+        };
+    }
+    async Task OnS1Refreshed( ChartStreamingData<LiveDataPoint> data)
+    {
+        s1=await _sensorUnique.GetS1RealTime(Endpoint.Senors1RealtimeEndpoint);
+
+        data.Value =  new()
+            {
+                X = DateTime.Now,
+                Y = s1.Value
+            };
+    }
+    async Task OnS2Refreshed( ChartStreamingData<LiveDataPoint> data )
+    {
+        s2=await _sensorUnique.GetS2RealTime(Endpoint.Senors2RealtimeEndpoint);
+
+        data.Value = new LiveDataPoint
+        {
+            X = DateTime.Now,
+            Y = s2.Value,
+        };
+    }
+        async Task OnS3Refreshed( ChartStreamingData<LiveDataPoint> data )
+    {
+        s3=await _sensorUnique.GetS3RealTime(Endpoint.Senors3RealtimeEndpoint);
+
+        data.Value = new LiveDataPoint
+        {
+            X = DateTime.Now,
+            Y = s3.Value,
+        };
+    }
+        async Task OnS4Refreshed( ChartStreamingData<LiveDataPoint> data )
+    {
+        s4=await _sensorUnique.GetS4RealTime(Endpoint.Senors4RealtimeEndpoint);
+
+        data.Value = new LiveDataPoint
+        {
+            X = DateTime.Now,
+            Y = s4.Value,
+        };
+    }
+        async Task OnS5Refreshed( ChartStreamingData<LiveDataPoint> data )
+    {
+        s5=await _sensorUnique.GetS5RealTime(Endpoint.Senors5RealtimeEndpoint);
+
+        data.Value = new LiveDataPoint
+        {
+            X = DateTime.Now,
+            Y = s5.Value,
+        };
+    }
+    async Task OnPlRefreshed( ChartStreamingData<LiveDataPoint> data )
+    {
+        pl=await _sensorPl.GetPlRealTime(Endpoint.SenorsPlRealtimeEndpoint);
+
+        data.Value = new LiveDataPoint
+        {
+            X = DateTime.Now,
+            Y = pl.Value,
+        };
+    }
+}

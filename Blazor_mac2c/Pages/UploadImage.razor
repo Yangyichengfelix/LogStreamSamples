@@ -1,0 +1,172 @@
+﻿@page "/uploadimage"
+@using System.Globalization
+@using System.Net.Http
+@using Radzen
+@using Radzen.Blazor
+@using System.Linq.Dynamic.Core
+@using Blazor_mac2c.Models
+@using Blazor_mac2c.Endpoint
+@using Blazor_mac2c.Contracts
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager _navManager
+@inject IImageRepository _imageRepo
+@inject IPageProgressService PageProgressService
+@inject IJSRuntime JsRuntime
+@inject HttpClient client
+@inject IFileReaderService fileReaderService;
+@using System.IO
+@using Tewr.Blazor.FileReader
+
+<div class="container" style="background-color:rgba(220,220,220,0.3);">
+    <div class="row">
+        <div class="col-xl-12">
+        <RadzenFieldset AllowCollapse="true" Style=" margin: 10px auto;border-radius:10px;">
+            <HeaderTemplate>
+                <span class="d-inline-flex align-items-center align-middle">
+                    <b>Product image</b>
+                </span>
+            </HeaderTemplate>    
+            <ChildContent>
+                <div class="row">
+                    <div class="col-xl-6">
+                        @if (!string.IsNullOrEmpty(imageDataURL))
+                        {
+                            <img src="@imageDataURL" width="100%" />
+
+                        }
+                        else
+                        {
+                            <p>@progress</p>
+                        }
+                    </div>
+
+                    <Div class="col-xl-6"  Flex="Flex.AlignItems.Center">
+                        <Div class="row">
+                            <input @ref=inputTypeFileElement type="file"/>
+                            <Button Color="Color.Info" Clicked="@ReadFile" Style="width: 100%;">Upload</Button>         
+                        </Div>
+                    </Div>
+                </div>
+            </ChildContent>
+        </RadzenFieldset>
+        </div>
+    </div>
+</div>
+
+@code{
+    protected string fileContent;
+    protected string imageDataURL;
+    protected string imageBase64Data;
+    protected bool response;
+    private ElementReference inputTypeFileElement;
+    private string _src;
+    private string progress;
+
+    protected ImageModel img; 
+    protected ImageModel createImg=new ImageModel(); 
+
+    public async Task ReadFile()
+    {
+        imageDataURL = "";
+        foreach (var file in await fileReaderService.CreateReference(inputTypeFileElement).EnumerateFilesAsync())
+        {
+            await using var fileStream = await file.OpenReadAsync();
+            var fileInfo = await file.ReadFileInfoAsync();
+            var buffer = new byte[2048];
+            var finalBuffer = new byte[fileStream.Length];
+            int count;
+            int totalCount = 0;
+            while ((count = await fileStream.ReadAsync(buffer, 0, buffer.Length)) != 0)
+            {
+                Buffer.BlockCopy(buffer, 0, finalBuffer, totalCount, count);
+                totalCount += count;
+                progress = "Uploading " + (int)(totalCount * 100.0 / fileStream.Length) + "%";
+                StateHasChanged();
+            }
+            
+            imageDataURL = $"data:image/jpg;base64,{Convert.ToBase64String(finalBuffer)}";
+
+            createImg.FileName = fileInfo.Name;
+            createImg.FileContent = finalBuffer;
+            response = await _imageRepo.Create(Endpoint.UploadImageEndpoint, createImg);
+             if (response)
+            progress = "";
+            StateHasChanged();
+        }
+    }
+    //protected async Task OnUpload()
+    //{
+    //    response = await _imageRepo.Create(Endpoint.UploadImageEndpoint, createImg);
+    //    if (response)
+    //    {
+    //        img= await _imageRepo.GetLast();
+    //        imageBase64Data = Convert.ToBase64String(img.FileContent);
+    //        imageDataURL = string.Format("data:image/jpg;base64,{0}", imageBase64Data);
+    //        StateHasChanged();
+      
+    //    }
+    //}
+
+
+
+    //const int OneMb = 1024 * 1024;
+    //async Task OnChanged( FileChangedEventArgs e )
+    //{
+    //    try
+    //    {
+    //        var file = e.Files.FirstOrDefault();
+    //        if ( file == null )
+    //        {
+    //            return;
+    //        }
+
+    //        var buffer = new byte[OneMb];
+    //        using ( var bufferedStream = new BufferedStream( file.OpenReadStream( long.MaxValue ), OneMb ) )
+    //        {
+    //            int readCount = 0;
+    //            int readBytes;
+    //            while ( ( readBytes = await bufferedStream.ReadAsync( buffer, 0, OneMb ) ) > 0 )
+    //            {
+    //                Console.WriteLine( $"Read:{readCount++} {readBytes / (double)OneMb} MB" );
+    //                // Do work on the first 1MB of data
+    //            }
+    //        }
+    //    }
+    //    catch ( Exception exc )
+    //    {
+    //        Console.WriteLine( exc.Message );
+    //    }
+    //    finally
+    //    {
+    //        //this.StateHasChanged();
+    //    }
+    //}
+
+    //void OnWritten( FileWrittenEventArgs e )
+    //{
+        
+    //    createImg.FileName = e.File.Name;
+    //    createImg.FileContent = e.Data;
+    //}
+
+    //void OnProgressed( FileProgressedEventArgs e )
+    //{
+       
+    //}
+
+    protected async override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            //img= await _imageRepo.Get(Endpoint.UploadImageEndpoint+"/", 1);
+            img= await _imageRepo.GetLast();
+            imageBase64Data = Convert.ToBase64String(img.FileContent);
+            imageDataURL = string.Format("data:image/jpg;base64,{0}", imageBase64Data);
+            StateHasChanged();
+        }
+        
+
+    }
+}

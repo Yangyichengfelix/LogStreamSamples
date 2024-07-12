@@ -1,0 +1,206 @@
+﻿@page "/alarms"
+@using System.Globalization
+@using System.Net.Http
+@using Radzen
+@using Radzen.Blazor
+@using System.Linq.Dynamic.Core
+@using Blazor_mac2c.Models
+@using Blazor_mac2c.Endpoint
+@using Blazor_mac2c.Contracts
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Blazorise.Charts
+@using Blazorise.Charts.Streaming
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager _navManager
+@inject IPageProgressService PageProgressService
+@inject ISensorUniqueRepository _sensorUnique
+@inject ILogDurationRepository _logDuration
+@inject IActivityReportRepository _activityReport
+@inject IJSRuntime JsRuntime
+@inject HttpClient client
+    <div class="container"style="background-color:rgba(220,220,220,0.3);">
+
+        <div class="row px-3">
+            <div class="col-md-6 col-lg-6 col-xl-6 p-3">
+                <div class="bg-warning">
+                <RadzenCard>
+                    <h4 class="mb-4">Start</h4>
+                    <RadzenDatePicker @bind-Value=@startTime DateFormat="yyyy-MM-dd HH:mm:ss" ShowTime="true" Change=@(args => OnTimeChange(args, "StartDatePicker", "MM/dd/yyyy")) Class="w-100" />
+                </RadzenCard>
+                </div>
+
+            </div>
+            <div class="col-md-6 col-lg-6 col-xl-6 p-3">
+                <RadzenCard>
+                    <h4 class="mb-4">End</h4>
+                    <RadzenDatePicker @bind-Value=@endTime DateFormat="yyyy-MM-dd HH:mm:ss" ShowTime="true" Change=@(args => OnTimeChange(args, "EndDatePicker", "MM/dd/yyyy")) Class="w-100" />
+                </RadzenCard>
+            </div>
+
+        </div>
+
+        <div class="row">
+            <div class="col-sm-12 my-5">
+                    <Div Position="Position.Absolute.Top.Is0.End.Is0">
+                        <RadzenButton ButtonStyle="ButtonStyle.Info"  Text="View data" Click="@ClickCalenderValidate" Class="w-100" BusyText="Invoking ..." IsBusy=@busy  />
+                    </Div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-xl-12">
+                <RadzenFieldset AllowCollapse="true" Collapsed=@collapse Style="border-radius:10px;">
+                    <HeaderTemplate>
+                        <span class="d-inline-flex align-items-center align-middle">
+                            <b>Alerts: @nokNumber Nok/ @skewingNumber Skewings</b>
+                        </span>
+                    </HeaderTemplate>   
+                    <ChildContent>
+                        <div id="alarm_detail_chart"/>
+                        <div id="alarm_detail_tooltip"></div>
+                    </ChildContent>    
+                    <SummaryTemplate>
+                        <RadzenCard class="mt-3">
+                            <RadzenIcon Icon="warning" Style="color:crimson" /> <h3>@nokNumber Nok/ @skewingNumber Skewings</h3>
+                        </RadzenCard>
+                    </SummaryTemplate>
+                </RadzenFieldset>
+            </div>
+        </div>
+    </div>
+@code {
+    protected IEnumerable<LogDurationModel> nokData;
+
+    protected IEnumerable<LogDurationModel> skewingData;
+    protected int nokNumber;
+    protected int skewingNumber;
+    protected bool collapse=false;
+    protected bool busy;
+    protected DateTime startTime = DateTime.Now.AddDays(-30);
+    protected DateTime endTime = DateTime.Now;
+    protected double seconds = 0;
+
+    protected string startTimeString;
+    protected string endTimeString;
+
+    protected double totalSecond;
+    protected async Task OnTimeChange(DateTime? value, string name, string format)
+    {
+        totalSecond = 0;
+        seconds = (endTime - startTime).TotalSeconds;
+        SetPageProgressIndeterminate();
+        SetCalenderValues();
+        await GetValues();
+        if (nokData==null ||skewingData==null||nokNumber == 0 || skewingNumber == 0)
+        {
+            collapse = true;
+
+        }
+        UpdateAlarmChart();
+
+        //StateHasChanged();
+        SetPageProgressHidden();
+    }
+    protected Task SetPageProgressIndeterminate()
+    {
+        return PageProgressService.Go(null, options => { options.Color = Color.Warning; });
+    }
+    protected Task SetPageProgressHidden()
+    {
+        return PageProgressService.Go(-1);
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        totalSecond = 0;
+
+        seconds = (endTime - startTime).TotalSeconds;
+        collapse = true;
+    }
+@*    protected async override Task OnAfterRenderAsync(bool firstRender)
+    {   //modifié le 02/03/2022 passé en  OnParametersSetAsync()
+        //if(firstRender)
+        totalSecond = 0;
+        seconds = (endTime - startTime).TotalSeconds;
+        SetPageProgressIndeterminate();
+        SetCalenderValues();
+        await GetValues();
+        if (nokData==null ||skewingData==null||nokNumber == 0 || skewingNumber == 0)
+        {
+            collapse = true;
+
+        }
+        UpdateAlarmChart();
+
+
+        SetPageProgressHidden();  
+        }*@
+
+    protected override async Task OnParametersSetAsync()
+    {
+        totalSecond = 0;
+        seconds = (endTime - startTime).TotalSeconds;
+        SetPageProgressIndeterminate();
+        SetCalenderValues();
+        await GetValues();
+        if (nokData==null ||skewingData==null||nokNumber == 0 || skewingNumber == 0)
+        {
+            collapse = true;
+
+        }
+        UpdateAlarmChart();
+
+        //StateHasChanged();
+        SetPageProgressHidden();
+    }
+    protected async Task ClickCalenderValidate()
+    {
+        totalSecond = 0;
+        busy = true;
+        seconds = (endTime - startTime).TotalSeconds;
+        SetPageProgressIndeterminate();
+        SetCalenderValues();
+        await GetValues();
+        UpdateAlarmChart();
+
+        SetPageProgressHidden();
+        busy = false;
+
+    }
+
+    protected async Task GetValues()
+    {
+        nokData=await _logDuration.GetNokAlert(Endpoint.NokAlertEndpoint+ $"?{startTimeString}&{endTimeString}");
+        skewingData=await _logDuration.GetSkewingAlert(Endpoint.SkewingAlertEndpoint+ $"?{startTimeString}&{endTimeString}");
+
+        if(nokData is null){
+            nokNumber = 0;
+        }
+        else
+        {
+            nokNumber= nokData.Count();
+        }
+        if(skewingData is null){
+            skewingNumber = 0;
+        }
+        else
+        {
+            skewingNumber= skewingData.Count();
+        }
+
+    }
+
+    protected async Task UpdateAlarmChart()
+    {
+        JsRuntime.InvokeVoidAsync("cleanAlarmDetailChartChildren");
+        JsRuntime.InvokeVoidAsync("drawAlarmDetailChart", nokData,skewingData,  seconds, startTime.AddDays(-1).ToString("s"), endTime.AddDays(1).ToString("s"));
+
+    }
+
+    protected async Task SetCalenderValues()
+    {
+        startTimeString = "start=" + startTime.ToString("yyyy-MM-dd HH:mm:ss");
+        endTimeString = "end=" + endTime.ToString("yyyy-MM-dd HH:mm:ss");
+
+    }
+}

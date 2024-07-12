@@ -1,0 +1,130 @@
+﻿@page "/historyreport"
+@using System.Globalization
+@using System.Net.Http
+@using Radzen
+@using Radzen.Blazor
+@using System.Linq.Dynamic.Core
+@using Blazor_mac2c.Models
+@using Blazor_mac2c.Endpoint
+@using Blazor_mac2c.Contracts
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IPageProgressService PageProgressService
+@inject IActivityReportRepository _activityReport
+@inject IJSRuntime JsRuntime
+@inject HttpClient client
+<h3>HistoryReport</h3>
+
+<div class="container" style="background-color:rgba(220,220,220,0.3);">
+            <div class="row px-3">
+            <div class="col-md-6 col-lg-6 col-xl-6 p-3">
+                <div class="bg-warning">
+                <RadzenCard>
+                    <h4 class="mb-4">Start</h4>
+                    <RadzenDatePicker @bind-Value=@startTime DateFormat="yyyy-MM-dd HH:mm:ss" ShowTime="true" Change=@(args => OnTimeChange(args, "StartDatePicker", "MM/dd/yyyy")) Class="w-100"  />
+                </RadzenCard>
+                </div>
+
+            </div>
+
+            <div class="col-md-6 col-lg-6 col-xl-6 p-3">
+                <RadzenCard>
+                    <h4 class="mb-4">End</h4>
+                    <RadzenDatePicker @bind-Value=@endTime DateFormat="yyyy-MM-dd HH:mm:ss" ShowTime="true" Change=@(args => OnTimeChange(args, "EndDatePicker", "MM/dd/yyyy")) Class="w-100" />
+                </RadzenCard>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-sm-12 my-5">
+                    <Div Position="Position.Absolute.Top.Is0.End.Is0">
+                        <RadzenButton ButtonStyle="ButtonStyle.Info"  Text="View data" Click="@ClickCalenderValidate" Class="w-100" BusyText="Invoking ..." IsBusy=@busy  />
+                    </Div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xl-12">
+                <RadzenFieldset AllowCollapse="true" Style=" margin: 10px auto;border-radius:10px;" Collapsed=@collapse>
+                    <HeaderTemplate>
+                        <span class="d-inline-flex align-items-center align-middle">
+                            <b>Historical report</b>
+                        </span>
+                    </HeaderTemplate>   
+                    <SummaryTemplate>
+                        <RadzenCard class="mt-3">
+                            <div class="" id="historicalReport_color"/>   
+                        </RadzenCard>
+                    </SummaryTemplate>                    
+                    <ChildContent>
+                        <div class="" id="historicalReport_chart"/>                       
+                        <div class="" id="historicalReport_tooltip"/> 
+                    </ChildContent>   
+                </RadzenFieldset>
+            </div>
+
+        </div>
+
+</div>
+
+@code {
+    protected IEnumerable<ActivityReportModel> ActivityReportData;
+    protected string startTimeString;
+    protected string endTimeString;
+    protected double totalSecond;
+    protected bool busy;
+    protected bool collapse=true;
+    protected DateTime startTime = DateTime.Now.AddDays(-1);
+    protected DateTime endTime = DateTime.Now;
+    protected double seconds = 0;
+    protected async Task OnTimeChange(DateTime? value, string name, string format)
+    {
+        SetCalenderValues();
+        collapse = false;
+    }
+ 
+    protected Task SetPageProgressIndeterminate()
+    {
+        return PageProgressService.Go(null, options => { options.Color = Color.Warning; });
+    }
+    protected Task SetPageProgressHidden()
+    {
+        return PageProgressService.Go(-1);
+    }
+    protected async Task GetActivityReport()
+    {
+        ActivityReportData= await _activityReport.GetActivityReport(Endpoint.ActivityReportEndpoint+ $"?{startTimeString}&{endTimeString}");
+    }
+    protected async override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if(firstRender)        
+        totalSecond = 0;
+        seconds = (endTime - startTime).TotalSeconds;
+        SetPageProgressIndeterminate();
+        SetCalenderValues();
+        await GetActivityReport();
+        UpdateActivityReportChart();
+        SetPageProgressHidden();
+
+    }
+     protected async Task ClickCalenderValidate()
+    {
+        totalSecond = 0;
+        busy = true;
+        seconds = (endTime - startTime).TotalSeconds;
+        SetPageProgressIndeterminate();
+        SetCalenderValues();
+        await GetActivityReport();
+        UpdateActivityReportChart();
+        SetPageProgressHidden();
+        busy = false;
+    }
+    protected async Task SetCalenderValues()
+    {
+        startTimeString = "start=" + startTime.ToString("yyyy-MM-dd HH:mm:ss");
+        endTimeString = "end=" + endTime.ToString("yyyy-MM-dd HH:mm:ss");
+    }
+    protected async Task UpdateActivityReportChart()
+    {
+        JsRuntime.InvokeVoidAsync("cleanActivityReportChartChildren");
+        JsRuntime.InvokeVoidAsync("drawHistoricalReportChart", ActivityReportData);
+    }
+}

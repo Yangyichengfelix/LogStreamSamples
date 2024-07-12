@@ -1,0 +1,227 @@
+﻿@page "/GaugeParameter"
+@using System.Globalization
+@using System.Net.Http
+@using Radzen
+@using Radzen.Blazor
+@using System.Linq.Dynamic.Core
+@using Blazor_mac2c.Models
+@using Blazor_mac2c.Endpoint
+@using Blazor_mac2c.Contracts
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject HttpClient client
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager _navManager
+@inject IPageProgressService PageProgressService
+@inject IJSRuntime JsRuntime
+@inject IGaugeParameterRepository _gaugeRepo
+@inject NotificationService NotificationService
+<PageTitle>Gauege settings </PageTitle>
+<div class="container">
+    <RadzenFieldset Style=" margin: 40px auto; border-radius:10px; background-color:rgba(220,220,220,0.6);" AllowCollapse="true" >
+        <HeaderTemplate>
+            <span class="d-inline-flex align-items-center align-middle">
+                <RadzenIcon Icon="build" Class="mr-1" /><b>Gauge settings</b>
+            </span> 
+        </HeaderTemplate>
+        <ChildContent>
+            <div class="row px-3">
+                <div class="col-md-4 col-lg-4 p-3">
+                      <RadzenCard>
+                        <h4 class="mb-4">Gauge name</h4>
+                        <RadzenDropDown  TValue="GaugeParameterModel" Class="w-100" 
+                                        @bind-Value=@gaugeParameterSelection Data=@gauges TextProperty="Name" 
+                                    Change=@(arg=> OnGaugeSelectChange(arg) ) />
+                    </RadzenCard>
+                    <RadzenCard>
+                        <h4 class="mb-4">Breakpoints From @breakpoint1 To @breakpoint2</h4>
+                        <RadzenSlider Range="true" @bind-Value=@breakpointValues Step="5"  Min="10" Max="90" TValue="IEnumerable<int>" Change=@(args => OnBreakpointChange(args, "Range Slider")) Class="w-100" Fill="Crimson" />
+                    </RadzenCard>
+                   <RadzenCard>
+                        <h4 class="mb-4">Step: @step</h4>
+                        <RadzenSlider @bind-Value=@stepValue Step="5" Min="1" Max="50" TValue="int" Change=@(args => OnStepChange(args, "Step Slider")) Class="w-100" />
+                    </RadzenCard>
+                     <RadzenCard>
+                        <h4 class="mb-4">Angle From @startAngle ° To @endAngle °</h4>     
+                        <p></p>
+                        <RadzenSlider Range="true" @bind-Value=@angleValues Step="5" Min="-175" Max="175" TValue="IEnumerable<int>" Change=@(args => OnAngleChange(args, "Angle Slider")) Class="w-100" />
+                    </RadzenCard>
+                </div>
+                <div class="col-md-8 col-lg-8 p-3">
+                                    <RadzenRadialGauge Style="width: 100%; height: 400px;">
+                                        <RadzenRadialGaugeScale StartAngle=@startAngle EndAngle=@endAngle Step=@step Min="0" Max="100" TickPosition=@tickPosition>
+                                            <RadzenRadialGaugeScalePointer Value=50 Length="0.6" ShowValue=true>
+                                                <Template Context="pointer">
+                                                    <h5>
+                                                       @pointer.Value <sup>%</sup>
+                                                    </h5>
+                                                </Template>
+                                            </RadzenRadialGaugeScalePointer>
+                                            <RadzenRadialGaugeScaleRange From="0" To=@breakpoint1  Fill="crimson"/>
+                                            <RadzenRadialGaugeScaleRange From=@breakpoint1 To=@breakpoint2 Fill="orange" />
+                                            <RadzenRadialGaugeScaleRange From=@breakpoint2 To="100" Fill="green" />
+                                        </RadzenRadialGaugeScale>
+                                    </RadzenRadialGauge>
+                </div>
+
+            </div>
+
+            <div class="row px-3">
+                <div class="col-md-4 col-lg-4 p-3"/>
+                <div class="col-md-8 col-lg-8 p-3">
+                    <RadzenButton ButtonStyle="ButtonStyle.Info"  Text="Save" Click="@(args=>GagueSettingValidate(new NotificationMessage 
+                                { Severity = NotificationSeverity.Info, 
+                                Summary = "Update", 
+                                Detail = "Update gauge setting", 
+                                Duration = 4000 }))" Class="w-100" BusyText="Invoking ..." IsBusy=@busy  />
+                </div>
+            </div>
+        </ChildContent>
+    </RadzenFieldset>
+</div>
+@code {
+    protected IEnumerable<GaugeParameterModel> gauges;
+
+
+    protected GaugeParameterModel gaugeParameterModel;
+    protected GaugeParameterModel gaugeParameterSelection;
+
+    protected int step=10;
+    protected int startAngle=-90;
+    protected int endAngle=90;
+    protected int breakpoint1=10;
+    protected int breakpoint2=80;
+    protected bool busy;
+    private bool isSuccess = true;
+    protected IEnumerable<GaugeTickPosition> tickPositions = Enum.GetValues(typeof(GaugeTickPosition)).Cast<GaugeTickPosition>();
+    protected GaugeTickPosition tickPosition = GaugeTickPosition.Outside;
+
+    IEnumerable<int> breakpointValues = new int[] { 10, 90 };
+    //IEnumerable<int> stepValues = new int[] { 14, 78 };
+    int stepValue = 10;
+    IEnumerable<int> angleValues = new int[] { -180, 180 };
+
+
+
+    protected void OnBreakpointChange(dynamic value, string name)
+    {
+        gaugeParameterModel.Breakpoint1 = breakpointValues.First();
+        breakpoint1=gaugeParameterModel.Breakpoint1;
+        gaugeParameterModel.Breakpoint2 = breakpointValues.Last();
+        breakpoint2=gaugeParameterModel.Breakpoint2;
+    }
+    protected void OnGaugeSelectChange(object T)
+    {
+        gaugeParameterModel = gaugeParameterSelection;
+        ChangeStep();
+        ChangeBreakpoints();
+        ChangeAngles();
+
+    }
+
+    protected void ChangeStep()
+    {
+        step = gaugeParameterModel.step;
+        stepValue=gaugeParameterModel.step;
+
+
+    }
+    protected void ChangeBreakpoints()
+    {
+        breakpoint1=gaugeParameterModel.Breakpoint1;
+        breakpoint2=gaugeParameterModel.Breakpoint2;
+        breakpointValues =new int[] { breakpoint1, breakpoint2};
+
+
+    }
+    protected void ChangeAngles()
+    {
+        startAngle = gaugeParameterModel.StartAngle;
+        endAngle = gaugeParameterModel.EndAngle;
+        angleValues =new int[] { startAngle, endAngle};
+
+    }
+    protected void OnStepChange(dynamic value, string name)
+    {
+        gaugeParameterModel.step = stepValue;
+        step = gaugeParameterModel.step;
+
+    }
+    protected void OnAngleChange(dynamic value, string name)
+    {
+        gaugeParameterModel.StartAngle = angleValues.First();
+        startAngle=gaugeParameterModel.StartAngle;
+
+        gaugeParameterModel.EndAngle = angleValues.Last();
+        endAngle=gaugeParameterModel.EndAngle;
+    }
+    protected override async Task OnInitializedAsync()
+    {
+
+    }
+    protected async override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            gauges=await _gaugeRepo.GetAllGaugeParameter(Endpoint.GaugeParameterEnpoint);
+            StateHasChanged();
+        }
+        //gauges=await _gaugeRepo.GetAllGaugeParameter(Endpoint.GaugeParameterEnpoint);
+      //gaugeParameterModel = gauges.First();
+        //InvokeAsync(StateHasChanged);
+    }
+    private async Task UpdateGaueParameter()
+    {
+        gaugeParameterModel.step = stepValue;
+        gaugeParameterModel.StartAngle = angleValues.First();
+        gaugeParameterModel.EndAngle = angleValues.Last();
+        gaugeParameterModel.Breakpoint1 = breakpointValues.First();
+        gaugeParameterModel.Breakpoint2 = breakpointValues.Last();
+
+        //Console.WriteLine($"{gaugeParameterModel.Name},{gaugeParameterModel.Id}, {gaugeParameterModel.step}, start {gaugeParameterModel.StartAngle}, end {gaugeParameterModel.EndAngle}" );
+        isSuccess = await _gaugeRepo.Update(Endpoint.GaugeParameterEnpoint+ $"/", gaugeParameterModel, gaugeParameterModel.Id);
+        if (isSuccess)
+        {
+            NotificationMessage success = new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Success,
+                    Summary = $"{gaugeParameterModel.Name} Setting updated",
+                    Detail = $"{gaugeParameterModel.Name} Setting updated",
+                    Duration = 4000
+                };
+            NotificationService.Notify(success);
+        }
+        else
+        {
+            NotificationMessage failure = new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Error,
+                    Summary = $"Something wrong when trying to update {gaugeParameterModel.Name} settings ",
+                    Detail = $"Something wrong when trying to update {gaugeParameterModel.Name} settings ",
+                    Duration = 4000
+                };
+            NotificationService.Notify(failure);
+        }
+    }
+
+    protected void GagueSettingValidate(NotificationMessage message)
+    {
+        busy=true;
+        SetPageProgressIndeterminate();
+        UpdateGaueParameter();
+        NotificationService.Notify(message);
+        SetPageProgressHidden();
+        busy=false;
+    }
+    #region loading
+    protected Task SetPageProgressIndeterminate()
+    {
+        return PageProgressService.Go(null, options => { options.Color = Color.Warning; });
+    }
+    protected Task SetPageProgressHidden()
+    {
+        return PageProgressService.Go(-1);
+    }
+    #endregion
+}

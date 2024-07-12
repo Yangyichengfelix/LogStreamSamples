@@ -1,0 +1,284 @@
+﻿@page "/sensors"
+@using System.Globalization
+@using System.Net.Http
+@using Blazorise.Components
+@using Radzen
+@using Radzen.Blazor
+@using System.Linq.Dynamic.Core
+@using Blazor_mac2c.Models
+@using Blazor_mac2c.Endpoint
+@using Blazor_mac2c.Contracts
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Blazorise
+
+@using Blazorise.Charts
+@using Blazorise.Charts.Streaming
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager _navManager
+@inject IPageProgressService PageProgressService
+@inject ISensorUniqueRepository _sensorUnique
+@inject IStatusDurationRepository _statusDuration
+@inject IStatusRepository _status
+@inject IStatusGroupDurationRepository _statusGroupDuration
+@inject ILogDurationRepository _logDuration
+@inject IActivityReportRepository _activityReport
+@inject IJSRuntime JsRuntime
+@inject HttpClient client
+    <div class="container"style="background-color:rgba(220,220,220,0.3);">
+
+        <div class="row px-3">
+            <div class="col-md-6 col-lg-6 col-xl-6 p-3">
+
+                <RadzenCard>
+                    <h4 class="mb-4">Start</h4>
+                    <RadzenDatePicker @bind-Value=@startTime DateFormat="yyyy-MM-dd HH:mm:ss" ShowTime="true" Change=@(args => OnTimeChange(args, "StartDatePicker", "MM/dd/yyyy")) Class="w-100" />
+                </RadzenCard>
+
+
+            </div>
+            <div class="col-md-6 col-lg-6 col-xl-6 p-3">
+                <RadzenCard>
+                    <h4 class="mb-4">End</h4>
+                    <RadzenDatePicker @bind-Value=@endTime DateFormat="yyyy-MM-dd HH:mm:ss" ShowTime="true" Change=@(args => OnTimeChange(args, "EndDatePicker", "MM/dd/yyyy")) Class="w-100" />
+                </RadzenCard>
+            </div>
+
+        </div>
+
+        <div class="row">
+            <div class="col-sm-12 my-5">
+                    <Div Position="Position.Absolute.Top.Is0.End.Is0">
+                        <RadzenButton ButtonStyle="ButtonStyle.Info"  Text="View data" Click="@ClickCalenderValidate" Class="w-100" BusyText="Invoking ..." IsBusy=@busy  />
+                    </Div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-xl-12">
+                <RadzenFieldset AllowCollapse="true"Collapsed=@collapse Style="border-radius:10px;">
+                    <HeaderTemplate>
+                        <span class="d-inline-flex align-items-center align-middle">
+                            <b>Sensors</b>
+                        </span>
+                    </HeaderTemplate>   
+                    <ChildContent>
+
+                    <SelectList TItem="SensorSelectModel"
+                                TValue="int"
+                                Data="@myGroup"
+                                TextField="@((item)=>item.SensorTextField)"
+                                ValueField="@((item)=>item.SensorValueField)"
+                                SelectedValue="@selectedGroupValue"
+                                SelectedValueChanged="@MyGroupValueChangedHandler"
+                                DefaultItemText="Choose sensor" Style="width: 200px;"/>
+
+                        <svg class="w-100" id="sensors_chart"/>
+                        <div id="sensors_tooltip"></div>
+                    </ChildContent>    
+                    <SummaryTemplate>
+                        <RadzenCard class="mt-3">
+                            <b>Sensors </b>
+                        </RadzenCard>
+                    </SummaryTemplate>
+                </RadzenFieldset>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xl-12">
+                <RadzenFieldset AllowCollapse="true" Collapsed=@collapse Style="border-radius:10px;">
+                    <HeaderTemplate>
+                        <span class="d-inline-flex align-items-center align-middle">
+                            <b>PL</b>
+                        </span>
+                    </HeaderTemplate>  
+                    <ChildContent>
+                        <svg class="w-100" id="pl_chart"/>
+                        <div id="pl_tooltip"></div>
+                    </ChildContent>    
+                    <SummaryTemplate>
+                        <RadzenCard class="mt-3">
+                            <b>PL </b>
+                        </RadzenCard>
+                    </SummaryTemplate>
+                </RadzenFieldset>
+            </div>
+        </div>
+    </div>
+@code {
+    public class SensorSelectModel
+    {
+        public int SensorValueField { get; set; }
+        public string SensorTextField { get; set; }
+    }
+
+    static string[] Group = { "1", "2", "3", "4", "5" };
+    IEnumerable<SensorSelectModel> myGroup = Enumerable.Range( 1, Group.Length ).Select( x => new SensorSelectModel { SensorTextField = Group[x - 1], SensorValueField = x } );
+
+    int selectedGroupValue { get; set; }=0 ;
+    void MyGroupValueChangedHandler( int newValue )
+    {
+        switch (newValue)
+        {
+            case 1:
+                SensorGraphData = Sensor1Data;
+                UpdateSensorChart();
+                break;
+            case 2:
+                SensorGraphData = Sensor2Data;
+                UpdateSensorChart();
+                break;
+            case 3:
+                SensorGraphData = Sensor3Data;
+                UpdateSensorChart();
+                break;
+            case 4:
+                SensorGraphData = Sensor4Data;
+                UpdateSensorChart();
+                break;
+            case 5:
+                SensorGraphData = Sensor5Data;
+                UpdateSensorChart();
+                break;
+        }
+        selectedGroupValue = newValue;
+        StateHasChanged();
+    }
+    protected IEnumerable<SensorBaseModel> SensorPLData;
+    protected IEnumerable<SensorUniqueModel> SensorGraphData;
+    protected IEnumerable<SensorUniqueModel> Sensor1Data;
+    protected IEnumerable<SensorUniqueModel> Sensor2Data;
+    protected IEnumerable<SensorUniqueModel> Sensor3Data;
+    protected IEnumerable<SensorUniqueModel> Sensor4Data;
+    protected IEnumerable<SensorUniqueModel> Sensor5Data;
+    protected IEnumerable<SensorSelection> sensorSelections = Enum.GetValues(typeof(SensorSelection)).Cast<SensorSelection>();
+    protected SensorSelection sensorSelection=SensorSelection._;
+    protected SensorSelection CurrentSelection ;
+    protected bool collapse=true;
+    protected bool busy;
+    protected DateTime startTime = DateTime.Now.AddDays(-0.5);
+    protected DateTime endTime = DateTime.Now;
+    protected double seconds = 0;
+    protected string startTimeString;
+    protected string endTimeString;
+    protected double totalSecond;
+    protected async Task OnTimeChange(DateTime? value, string name, string format)
+    {
+        SetCalenderValues();
+    }
+    protected Task SetPageProgressIndeterminate()
+    {
+        return PageProgressService.Go(null, options => { options.Color = Color.Warning; });
+    }
+    protected Task SetPageProgressHidden()
+    {
+        return PageProgressService.Go(-1);
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        totalSecond = 0;
+        seconds = (endTime - startTime).TotalSeconds;
+        SetPageProgressIndeterminate();
+        SetCalenderValues();
+        SensorPLData=await _sensorUnique.GetValues(Endpoint.SenorsSplEndpoint+ $"?{startTimeString}&{endTimeString}");
+        Sensor1Data = await _sensorUnique.GetValues(Endpoint.Senors1Endpoint + $"?{startTimeString}&{endTimeString}");
+        Sensor2Data = await _sensorUnique.GetValues(Endpoint.Senors2Endpoint + $"?{startTimeString}&{endTimeString}");
+        Sensor3Data = await _sensorUnique.GetValues(Endpoint.Senors3Endpoint + $"?{startTimeString}&{endTimeString}");
+        Sensor4Data = await _sensorUnique.GetValues(Endpoint.Senors4Endpoint + $"?{startTimeString}&{endTimeString}");
+        Sensor5Data = await _sensorUnique.GetValues(Endpoint.Senors5Endpoint + $"?{startTimeString}&{endTimeString}");
+        SensorGraphData = Sensor1Data;
+        JsRuntime.InvokeVoidAsync("drawSensorsChart", SensorGraphData, seconds);
+        JsRuntime.InvokeVoidAsync("drawPlChart", SensorPLData, seconds);
+
+        SetPageProgressHidden();
+    }
+@*    protected override async Task OnAfterRenderAsync(bool f)
+    {
+        if (f)
+        {
+            totalSecond = 0;
+            seconds = (endTime - startTime).TotalSeconds;
+            SetPageProgressIndeterminate();
+            SetCalenderValues();
+            SensorPLData=await _sensorUnique.GetValues(Endpoint.SenorsSplEndpoint+ $"?{startTimeString}&{endTimeString}");
+            Sensor1Data = await _sensorUnique.GetValues(Endpoint.Senors1Endpoint + $"?{startTimeString}&{endTimeString}");
+            Sensor2Data = await _sensorUnique.GetValues(Endpoint.Senors2Endpoint + $"?{startTimeString}&{endTimeString}");
+            Sensor3Data = await _sensorUnique.GetValues(Endpoint.Senors3Endpoint + $"?{startTimeString}&{endTimeString}");
+            Sensor4Data = await _sensorUnique.GetValues(Endpoint.Senors4Endpoint + $"?{startTimeString}&{endTimeString}");
+            Sensor5Data = await _sensorUnique.GetValues(Endpoint.Senors5Endpoint + $"?{startTimeString}&{endTimeString}");
+            SensorGraphData = Sensor1Data;
+            JsRuntime.InvokeVoidAsync("drawSensorsChart", SensorGraphData, seconds);
+            JsRuntime.InvokeVoidAsync("drawPlChart", SensorPLData, seconds);
+            int selectedGroupValue  = 1;
+            SetPageProgressHidden();
+        }
+
+    }*@
+    protected async Task ClickCalenderValidate()
+    {
+        busy = true;
+        SetPageProgressIndeterminate();
+        SetCalenderValues();
+        totalSecond = 0;
+        seconds = (endTime - startTime).TotalSeconds;
+
+        SensorPLData=await _sensorUnique.GetValues(Endpoint.SenorsSplEndpoint+ $"?{startTimeString}&{endTimeString}");
+        Sensor1Data = await _sensorUnique.GetValues(Endpoint.Senors1Endpoint + $"?{startTimeString}&{endTimeString}");
+        Sensor2Data = await _sensorUnique.GetValues(Endpoint.Senors2Endpoint + $"?{startTimeString}&{endTimeString}");
+        Sensor3Data = await _sensorUnique.GetValues(Endpoint.Senors3Endpoint + $"?{startTimeString}&{endTimeString}");
+        Sensor4Data = await _sensorUnique.GetValues(Endpoint.Senors4Endpoint + $"?{startTimeString}&{endTimeString}");
+        Sensor5Data = await _sensorUnique.GetValues(Endpoint.Senors5Endpoint + $"?{startTimeString}&{endTimeString}");
+
+        StateHasChanged();
+        MyGroupValueChangedHandler(selectedGroupValue);
+        UpdateSensorPLChart();
+        SetPageProgressHidden();
+        busy = false;
+        collapse = false;
+    }
+
+    protected async override Task OnParametersSetAsync()
+    {
+        totalSecond = 0;
+        seconds = (endTime - startTime).TotalSeconds;
+        SensorPLData=await _sensorUnique.GetValues(Endpoint.SenorsSplEndpoint+ $"?{startTimeString}&{endTimeString}");
+        Sensor1Data = await _sensorUnique.GetValues(Endpoint.Senors1Endpoint + $"?{startTimeString}&{endTimeString}");
+        Sensor2Data = await _sensorUnique.GetValues(Endpoint.Senors2Endpoint + $"?{startTimeString}&{endTimeString}");
+        Sensor3Data = await _sensorUnique.GetValues(Endpoint.Senors3Endpoint + $"?{startTimeString}&{endTimeString}");
+        Sensor4Data = await _sensorUnique.GetValues(Endpoint.Senors4Endpoint + $"?{startTimeString}&{endTimeString}");
+        Sensor5Data = await _sensorUnique.GetValues(Endpoint.Senors5Endpoint + $"?{startTimeString}&{endTimeString}");
+        MyGroupValueChangedHandler(selectedGroupValue);
+        UpdateSensorChart();
+        UpdateSensorPLChart();
+        SetPageProgressHidden();
+
+    }
+
+@*    protected async Task GetSensorsValues()
+    {
+        SensorPLData=await _sensorUnique.GetValues(Endpoint.SenorsSplEndpoint+ $"?{startTimeString}&{endTimeString}");
+        Sensor1Data = await _sensorUnique.GetValues(Endpoint.Senors1Endpoint + $"?{startTimeString}&{endTimeString}");
+        Sensor2Data = await _sensorUnique.GetValues(Endpoint.Senors2Endpoint + $"?{startTimeString}&{endTimeString}");
+        Sensor3Data = await _sensorUnique.GetValues(Endpoint.Senors3Endpoint + $"?{startTimeString}&{endTimeString}");
+        Sensor4Data = await _sensorUnique.GetValues(Endpoint.Senors4Endpoint + $"?{startTimeString}&{endTimeString}");
+        Sensor5Data = await _sensorUnique.GetValues(Endpoint.Senors5Endpoint + $"?{startTimeString}&{endTimeString}");
+    
+    }*@
+
+    protected async Task UpdateSensorChart()
+    {
+        JsRuntime.InvokeVoidAsync("cleanSensorChartChildren");
+        JsRuntime.InvokeVoidAsync("drawSensorsChart", SensorGraphData, seconds);
+    }
+    protected async Task UpdateSensorPLChart()
+    {
+        JsRuntime.InvokeVoidAsync("cleanPlChartChildren");
+        JsRuntime.InvokeVoidAsync("drawPlChart", SensorPLData, seconds);
+    }
+    protected async Task SetCalenderValues()
+    {
+        startTimeString = "start=" + startTime.ToString("yyyy-MM-dd HH:mm:ss");
+        endTimeString = "end=" + endTime.ToString("yyyy-MM-dd HH:mm:ss");
+
+    }
+}

@@ -1,0 +1,221 @@
+﻿@page "/status"
+@using System.Globalization
+@using System.Net.Http
+@using Radzen
+@using Radzen.Blazor
+@using System.Linq.Dynamic.Core
+@using Blazor_mac2c.Models
+@using Blazor_mac2c.Endpoint
+@using Blazor_mac2c.Contracts
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Blazorise.Charts
+@using Blazorise.Charts.Streaming
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager _navManager
+@inject IPageProgressService PageProgressService
+@inject ISensorUniqueRepository _sensorUnique
+@inject IStatusDurationRepository _statusDuration
+@inject IStatusRepository _status
+@inject IStatusGroupDurationRepository _statusGroupDuration
+@inject ILogDurationRepository _logDuration
+@inject IActivityReportRepository _activityReport
+@inject IJSRuntime JsRuntime
+@inject HttpClient client
+
+<div class="container"style="background-color:rgba(220,220,220,0.3);">
+            <div class="row px-3">
+            <div class="col-md-6 col-lg-6 col-xl-3 p-3">
+                <div class="bg-warning">
+                <RadzenCard>
+                    <h4 class="mb-4">Start</h4>
+                    <RadzenDatePicker @bind-Value=@startTime DateFormat="yyyy-MM-dd HH:mm:ss" ShowTime="true" Change=@(args => OnTimeChange(args, "StartDatePicker", "MM/dd/yyyy")) Class="w-100" />
+                </RadzenCard>
+                </div>
+
+            </div>
+            <div class="col-md-6 col-lg-6 col-xl-3 p-3">
+                <RadzenCard>
+                    <h4 class="mb-4">End</h4>
+                    <RadzenDatePicker @bind-Value=@endTime DateFormat="yyyy-MM-dd HH:mm:ss" ShowTime="true" Change=@(args => OnTimeChange(args, "EndDatePicker", "MM/dd/yyyy")) Class="w-100" />
+                </RadzenCard>
+            </div>
+            <div class="col-md-6 col-lg-6 col-xl-3 p-3">
+
+                <RadzenCard>
+                    <h4 class="mb-4">From</h4>
+                    <RadzenDatePicker  @bind-Value=@scheduleStart ShowTime="true" TimeOnly="true" DateFormat="HH:mm"  Change=@(args => OnTimeChange(args, "scheduleStartPicker", "HH:mm")) Class="w-100" />
+                </RadzenCard>
+            </div>
+            <div class="col-md-6 col-lg-6 col-xl-3 p-3">
+
+                <RadzenCard>
+                    <h4 class="mb-4">To</h4>
+                    <RadzenDatePicker @bind-Value=@scheduleEnd ShowTime="true" TimeOnly="true" DateFormat="HH:mm"  Change=@(args => OnTimeChange(args, "scheduleEndPicker", "HH:mm")) Class="w-100" />
+                </RadzenCard>
+            </div>
+        </div>
+<!-- #endregion Calender Sart End -->
+
+
+<!-- #endregion Calender validate -->
+
+<!-- #region Calender validate -->
+
+<!-- #endregion Calender validate -->
+    <div class="row px-3">
+         <div class="col-xl-12">
+             
+                <RadzenFieldset Text="Status" AllowCollapse="true"Style="border-radius:10px;">
+                    <ChildContent>
+             
+                            <RadzenButton ButtonStyle="ButtonStyle.Info"  Text="View data" Click="@ClickCalenderValidate" Class="w-100" BusyText="Invoking ..." IsBusy=@busy  />
+                        
+                        <div class="" id="statusDetail_tooltip"/> 
+                        <svg class="" id="statusDetail_chart"/>
+                                    
+                        
+                    </ChildContent>
+                    <SummaryTemplate>
+                        <RadzenCard class="mt-3">
+                  
+                                <RadzenButton ButtonStyle="ButtonStyle.Info"  Text="Refresh data" Click="@ClickCalenderValidate" Class="w-100" BusyText="Invoking ..." IsBusy=@busy  />
+                        
+                            <b>Status </b>
+                            <ul>                               
+                                @if(StatusDurationData!=null)
+                                {                               
+                                    @foreach (StatusDurationModel item in StatusDurationDataSorted)
+                                        {
+                                            
+                                            <li>@item.Name : @(Math.Round((item.Duration/ CalculateTotalSecond())*100, 2))%</li>
+                                        }
+                                }
+                            </ul>
+                        </RadzenCard>
+                    </SummaryTemplate>
+                </RadzenFieldset>
+         </div>
+    </div>
+</div>
+
+
+@code {
+    protected bool showValue = true;
+    protected IEnumerable<StatusDurationModel> StatusDurationData;
+    protected IEnumerable<StatusSimpleModel> StatusList;
+    protected IEnumerable<StatusDurationModel> StatusDurationDataSorted;
+
+
+    protected bool busy;
+    protected DateTime startTime = DateTime.Now.AddDays(-1);
+    protected DateTime endTime = DateTime.Now;
+    protected double seconds = 0;
+    protected DateTime scheduleStart = new DateTime(2020, 01, 01,00,00,00);
+    protected DateTime scheduleEnd =new DateTime(2020, 01, 01, 23,00,00);
+    protected string startTimeString;
+    protected string endTimeString;
+    protected string scheduleStartString;
+    protected string scheduleEndString;
+    protected double totalSecond;
+
+    protected async Task OnTimeChange(DateTime? value, string name, string format)
+    {
+        totalSecond = 0;
+
+        seconds = (endTime - startTime).TotalSeconds;
+        SetPageProgressIndeterminate();
+        SetCalenderValues();
+        StatusList = await _status.GetStatusList(Endpoint.StatusSimpleEndpoint);
+        await GetStatusDuartionValues();
+        UpdateStatusChart();
+        SetPageProgressHidden();// 02/03/2022
+    }
+    #region loading
+    protected Task SetPageProgressIndeterminate()
+    {
+        return PageProgressService.Go(null, options => { options.Color = Color.Warning; });
+    }
+    protected Task SetPageProgressHidden()
+    {
+        return PageProgressService.Go(-1);
+    }
+    #endregion
+
+    protected override async Task OnInitializedAsync()
+    {
+        totalSecond = 0;
+
+        seconds = (endTime - startTime).TotalSeconds;
+        SetPageProgressIndeterminate();
+        SetCalenderValues();
+
+        StatusList = await _status.GetStatusList(Endpoint.StatusSimpleEndpoint);
+
+        await GetStatusDuartionValues();
+
+        UpdateStatusChart();
+        SetPageProgressHidden();
+    }
+
+        protected override async Task  OnParametersSetAsync()
+    {
+        totalSecond = 0;
+
+        seconds = (endTime - startTime).TotalSeconds;
+        SetPageProgressIndeterminate();
+        SetCalenderValues();
+
+        StatusList = await _status.GetStatusList(Endpoint.StatusSimpleEndpoint);
+
+        await GetStatusDuartionValues();
+
+        UpdateStatusChart();
+        SetPageProgressHidden();
+    }
+
+
+    protected async Task ClickCalenderValidate()
+    {
+        totalSecond = 0;
+        busy = true;
+        seconds = (endTime - startTime).TotalSeconds;
+        Console.WriteLine(seconds.ToString());
+        SetPageProgressIndeterminate();
+        SetCalenderValues();
+        await GetStatusDuartionValues();
+        UpdateStatusChart();
+        SetPageProgressHidden();
+        busy = false;
+
+    }
+    protected async Task GetStatusDuartionValues()
+    {
+        StatusDurationData = await _statusDuration.GetStatusDuration(Endpoint.StatusDurationEndpoint + $"?{startTimeString}&{endTimeString}&{scheduleStartString}&{scheduleEndString}");  
+        if(StatusDurationData !=null)
+        StatusDurationDataSorted=        StatusDurationData.OrderByDescending(s => s.Duration);
+    }
+
+    protected double CalculateTotalSecond()
+    {
+        totalSecond = 0;
+        foreach(StatusDurationModel item in StatusDurationData)
+        {
+            totalSecond = totalSecond + item.Duration;
+        }
+        return totalSecond;
+    }
+    protected async Task UpdateStatusChart()
+    {
+        
+        JsRuntime.InvokeVoidAsync("cleanStatusDetailChartChildren");
+        JsRuntime.InvokeVoidAsync("drawStatusDetailChart", StatusDurationData);
+    }
+    protected async Task SetCalenderValues()
+    {
+        startTimeString = "start=" + startTime.ToString("yyyy-MM-dd HH:mm:ss");
+        endTimeString = "end=" + endTime.ToString("yyyy-MM-dd HH:mm:ss");
+        scheduleStartString = "scheduleStart=" + scheduleStart.ToString("HH:mm:ss");
+        scheduleEndString = "scheduleEnd=" + scheduleEnd.ToString("HH:mm:ss");
+    }
+}

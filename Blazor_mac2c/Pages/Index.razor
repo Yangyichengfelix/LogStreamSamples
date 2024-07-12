@@ -1,0 +1,720 @@
+﻿@page "/"
+@using System.Globalization
+@using System.Net.Http
+@using Radzen
+@using Radzen.Blazor
+@using System.Linq.Dynamic.Core
+@using Blazor_mac2c.Models
+@using Blazor_mac2c.Endpoint
+@using Blazor_mac2c.Contracts
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Blazorise.Components
+
+@using Blazorise.Charts
+@using Blazorise.Charts.Streaming
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager _navManager
+@inject IPageProgressService PageProgressService
+@inject ISensorUniqueRepository _sensorUnique
+@inject IStatusDurationRepository _statusDuration
+@inject IStatusRepository _status
+@inject IStatusGroupDurationRepository _statusGroupDuration
+@inject IScheduleParameterRepository _scheduleRepo
+@inject ILogDurationRepository _logDuration
+@inject IActivityReportRepository _activityReport
+@inject IGaugeParameterRepository _gaugeRepo
+@inject IImageRepository _imageRepo
+
+
+@inject IJSRuntime JsRuntime
+@inject HttpClient client
+<PageTitle>Mac2s Monitoring</PageTitle>
+
+@if(schedules == null){
+    <LoadingScreen/>
+}
+else
+{
+
+    <div class="container" style="background-color:rgba(220,220,220,0.3);">
+
+<!-- #region Calender Sart End -->
+        <div class="row px-3 " style="border-radius:10px;">
+            <div class="col-md-6 col-lg-6 col-xl-4 p-3">
+  
+
+
+                                    <Div>  
+                                        <Badge Color="Color.Light" >Start-End</Badge >          
+                                    </Div> 
+                                    <Row>   
+                                        <Column ColumnSize="ColumnSize.Is6">
+                                            <RadzenDatePicker @bind-Value=@startTime DateFormat="yyyy-MM-dd HH:mm:ss" ShowTime="true" Change=@(args => OnTimeChange(args, "StartDatePicker", "MM/dd/yyyy"))  Class="w-100"/>                                     
+                                        </Column>
+                                        <Column ColumnSize="ColumnSize.Is6">
+                                            <RadzenDatePicker @bind-Value=@endTime DateFormat="yyyy-MM-dd HH:mm:ss" ShowTime="true" Change=@(args => OnTimeChange(args, "EndDatePicker", "MM/dd/yyyy")) Class="w-100"/>
+                                        </Column>
+
+                                    </Row>   
+
+                                    <Dropdown Class="w-100  text-white">
+                                        <DropdownToggle Color="Color.Info" Class="w-100 bg-info text-white">
+                                            Range
+                                        </DropdownToggle>
+                                        <DropdownMenu Class="w-100 bg-info text-white">
+                                            <DropdownItem Class="w-100 bg-info text-white" Clicked=@SetOneHour>Last 1 hour</DropdownItem>
+                                            <DropdownItem Class="w-100 bg-info text-white" Clicked=@SetTwoHours>Last 2 hours</DropdownItem>
+                                            <DropdownItem Class="w-100 bg-info text-white" Clicked=@SetFourHours>Last 4 hours</DropdownItem>
+                                            <DropdownItem Class="w-100 bg-info text-white" Clicked=@SetEightHours>Last 8 hours</DropdownItem>
+                                            <DropdownItem Class="w-100 bg-info text-white" Clicked=@SetTwelveHours>Last 12 hours</DropdownItem>
+                                            <DropdownItem Class="w-100 bg-info text-white"Clicked=@SetOneDay>Last 24 hours</DropdownItem>
+                                            <DropdownItem Class="w-100 bg-info text-white"Clicked=@SetOneWeek>Last 7 days</DropdownItem>
+                                            <DropdownItem Class="w-100 bg-info text-white"Clicked=@SetOneMonth>Last 30 days</DropdownItem>
+                                        </DropdownMenu>
+                                    </Dropdown>
+
+     
+            </div>
+            <div class="col-md-6 col-lg-6 col-xl-4 p-3">
+                    <Badge Color="Color.Light">Schedule selection</Badge>
+                        <SelectList TItem="ScheduleParameterModel"
+                        TValue="int"
+                        Data="@ScheduleData"
+                        TextField="@((item)=>(item.Name))"
+                        ValueField="@((item)=>item.Id)"
+                        SelectedValue="@selectedScheduleValue"
+                        SelectedValueChanged="@ScheduleChangedHandler"
+                        DefaultItemText="Choose your schedule"
+                        Class="bg-info text-white"
+                        />
+                        <Badge Color="Color.Dark" Class="w-100">@selectedStartTime.ToString() -> @selectedEndTime.ToString()</Badge>
+
+
+            </div>
+
+
+            <div class="col-md-6 col-lg-6 col-xl-4 p-3">
+                <Row>  
+                    <Column ColumnSize="ColumnSize.Is6">
+                        <Badge Color="Color.Warning" Class="w-100"><Icon Name="IconName.ExclamationTriangle" /> @nokCount Nok</Badge>    
+                    </Column>
+                    <Column ColumnSize="ColumnSize.Is6">
+                        <Badge Color="Color.Warning" Class="w-100" > <Icon Name="IconName.ExclamationTriangle" />@skewingCount Skewing</Badge>
+                    </Column>
+                </Row>  
+
+                    <RadzenButton   Text="View data" Click="@ClickCalenderValidate" Class="w-100 bg-info text-white" BusyText="Invoking ..." IsBusy=@busy  />        
+
+            </div>
+        </div>
+<!-- #endregion Calender Sart End -->
+
+
+<!-- #endregion Calender validate -->
+
+<!-- #region Calender validate -->
+        <div class="row">
+            <div class="col-xl-4"/>
+            <div class="col-xl-4"/>
+
+            <div class="col-xl-4">
+
+            </div>
+        </div>
+<!-- #endregion Calender validate -->
+<!-- #endregion photos -->
+
+        <div class="row">
+            <div class="col-xl-4">
+                <RadzenFieldset AllowCollapse="true" Style=" margin: 10px auto;  background-color:rgba(220,220,220,0.6);   border-radius:10px;"Collapsed=@collapse>
+                    <HeaderTemplate>
+                        <span class="d-inline-flex align-items-center align-middle">
+                            <b>Product</b>
+                        </span>
+                    </HeaderTemplate>    
+                    <ChildContent>
+                        <RadzenImage Path=@imageDataURL  Style="height: 250px;" />
+                    </ChildContent>                
+                </RadzenFieldset>
+            </div>
+            <div class="col-xl-4">
+                <RadzenFieldset  AllowCollapse="true" Style=" margin: 10px auto; border-radius:10px; background-color:rgba(220,220,220,0.6);"Collapsed=@collapse>
+                    <HeaderTemplate>
+                        <span class="d-inline-flex align-items-center align-middle">
+                            <b>Overall Operations Effectiveness</b>
+                        </span>
+                    </HeaderTemplate>                    
+                    <ChildContent>
+                            <RadzenRadialGauge Style="width: 100%; height: 250px;">
+                                <RadzenRadialGaugeScale StartAngle=@startAngleOOE EndAngle=@endAngleOOE Step=@stepOOE Min="0" Max="100" TickPosition=@tickPosition>
+                                    <RadzenRadialGaugeScalePointer Value=@trg Length="0.6" ShowValue=@showValue>
+                                        <Template Context="pointer">
+                                            <h4>
+                                             OOE   @pointer.Value <sup>%</sup>
+                                            </h4>
+                                        </Template>
+                                    </RadzenRadialGaugeScalePointer>
+                                    <RadzenRadialGaugeScaleRange From="0" To=@breakpoint1OOE  Fill="crimson"/>
+                                    <RadzenRadialGaugeScaleRange From=@breakpoint1OOE To=@breakpoint2OOE Fill="orange" />
+                                    <RadzenRadialGaugeScaleRange From=@breakpoint2OOE To="100" Fill="green" />
+                                </RadzenRadialGaugeScale>
+                            </RadzenRadialGauge>
+                    </ChildContent>
+                    <SummaryTemplate>
+   
+                        <p>OOE @trg % </p>
+
+                    </SummaryTemplate>               
+                </RadzenFieldset>
+            </div>   
+            <div class="col-xl-4">
+                <RadzenFieldset AllowCollapse="true" Style=" margin: 10px auto; border-radius:10px; background-color:rgba(220,220,220,0.6);" Collapsed=@collapse>
+                    <HeaderTemplate>
+                        <span class="d-inline-flex align-items-center align-middle">
+                            <b>Overall Equipment Effectiveness</b>
+                        </span>
+                    </HeaderTemplate>  
+                    <SummaryTemplate>
+                            <p>OEE @trs % </p>
+                    </SummaryTemplate>  
+                    <ChildContent>
+                        <RadzenRadialGauge Style="width: 100%; height: 250px;"> 
+                            <RadzenRadialGaugeScale StartAngle=@startAngleOEE EndAngle=@endAngleOEE Step=@stepOEE Min="0" Max="100" TickPosition=@tickPosition>
+                                <RadzenRadialGaugeScalePointer Value=@trs Length="0.4" ShowValue=@showValue>
+                                    <Template Context="pointer">
+                                        <h4>
+                                        OEE    @pointer.Value <sup>%</sup>
+                                        </h4>
+                                    </Template>
+                                </RadzenRadialGaugeScalePointer>
+                                <RadzenRadialGaugeScaleRange From="0" To=@breakpoint1OEE  Fill="orangered"/>
+                                <RadzenRadialGaugeScaleRange From=@breakpoint1OEE To=@breakpoint2OEE Fill="orange" />
+                                <RadzenRadialGaugeScaleRange From=@breakpoint2OEE To="100" Fill="limegreen" />
+                            </RadzenRadialGaugeScale>
+                        </RadzenRadialGauge>    
+                    </ChildContent>
+             
+                </RadzenFieldset>
+            </div>   
+
+        </div>
+<!-- #endregion photos -->
+
+
+        <div class="row">
+
+
+    <!-- #region StatusGroup -->
+            <div class="col-xl-6">
+                <RadzenFieldset AllowCollapse="true" Style=" margin: 10px auto;border-radius:10px;background-color:rgba(220,220,220,0.6);" >
+                    <HeaderTemplate>
+                        <span class="d-inline-flex align-items-center align-middle">
+                            <b>Activity categories</b>
+                        </span>
+                    </HeaderTemplate>   
+                    <ChildContent>
+                        <Container>
+                            <svg class="w-100" id="statusCategory_chart"/>          
+                        </Container>
+
+                    </ChildContent>
+                    <SummaryTemplate>
+                    <RadzenCard>
+                        <b>Activity categories</b>
+                            <ul style="list-style: none;">                               
+                                @if(StatusGroupDurationData!=null)
+                                {                               
+                                    @foreach (StatusGroupDurationModel item in StatusGroupDurationData)
+                                        {
+                                            
+                                            <li>@item.Name : @(Math.Round((item.Duration/ CalculateTotalSecond())*100, 2))%</li>
+                                        }
+                                }
+                            </ul>
+                    </RadzenCard>
+                    </SummaryTemplate>      
+                </RadzenFieldset>
+            </div>
+    <!-- #endregion StatusGroup -->
+    <!-- #region Status -->
+
+            <div class="col-xl-6">
+                <RadzenFieldset AllowCollapse="true" Style=" margin: 10px auto;border-radius:10px;background-color:rgba(220,220,220,0.6);">
+                    <HeaderTemplate>
+                        <span class="d-inline-flex align-items-center align-middle">
+                            <b>Status</b>
+                        </span>
+                    </HeaderTemplate>   
+                    <ChildContent>
+                        <div class="" id="status_tooltip"/> 
+                        <svg class="" id="status_chart"/>                                                   
+                    </ChildContent>
+                    <SummaryTemplate>
+                        <RadzenCard class="mt-3">
+                            <b>Status </b>
+                            <ul>                               
+                                @if(StatusDurationData!=null)
+                                {                               
+                                    @foreach (StatusDurationModel item in StatusDurationData)
+                                    {
+                                            
+                                        <li>@item.Name : @(Math.Round((item.Duration/ CalculateTotalSecond())*100, 2))%</li>
+                                    }
+                                }
+                            </ul>
+                        </RadzenCard>
+                    </SummaryTemplate>
+                </RadzenFieldset>
+            </div>
+    <!-- #endregion Status -->
+
+        </div>
+    
+        <div class="row">
+            <div class="col-xl-12">
+                <RadzenFieldset AllowCollapse="false" Style=" margin: 10px auto;border-radius:10px;"Collapsed=@collapseAlarm>
+
+                            <RadzenIcon Icon="warning" Style="color:crimson" /> <h3>@nokCount Nok/ @skewingCount Skewings</h3>
+
+                </RadzenFieldset>
+            </div>
+        </div>
+<!-- #region report&Status -->
+@*        <div class="row">
+            <div class="col-xl-12">
+                <RadzenFieldset AllowCollapse="true" Style=" margin: 10px auto;border-radius:10px;">
+                    <HeaderTemplate>
+                        <span class="d-inline-flex align-items-center align-middle">
+                            <b>Historical report</b>
+                        </span>
+                    </HeaderTemplate>   
+                    <SummaryTemplate>
+                        <RadzenCard class="mt-3">
+                            <div class="" id="historicalReport_color"/>   
+                        </RadzenCard>
+                    </SummaryTemplate>                    
+                    <ChildContent>
+                        <div class="" id="historicalReport_chart"/>                       
+                        <div class="" id="historicalReport_tooltip"/> 
+                    </ChildContent>   
+                </RadzenFieldset>
+            </div>
+
+        </div>*@
+<!-- #endregion report&Status -->
+    </div>
+}
+
+@code {
+
+    #region vairable
+    IReadOnlyList<DateTime?> startEnd;
+    protected bool collapseAlarm=true; 
+    protected bool collapse=true;
+    protected ImageModel img=new ImageModel(); 
+    protected string imageDataURL;
+    protected string imageBase64Data;
+    protected bool showValue = true;
+    protected double trg = 0;
+    protected double trs = 0;
+    protected int trgDisplay=0;
+    protected int trsDisplay = 0;
+    protected int selectedScheduleValue { get; set; } = 0;
+    protected int stepOOE=10;
+    protected int startAngleOOE=-90;
+    protected int endAngleOOE=90;
+    protected int breakpoint1OOE=10;
+    protected int breakpoint2OOE=80;
+    protected int stepOEE=10;
+    protected int startAngleOEE=-90;
+    protected int endAngleOEE=90;
+    protected int breakpoint1OEE=10;
+    protected int breakpoint2OEE=80;
+    protected IEnumerable<StatusDurationModel> StatusDurationData;
+    protected IEnumerable<StatusSimpleModel> StatusList;
+    protected IEnumerable<ScheduleParameterModel> ScheduleData;
+    protected IEnumerable<ScheduleParameterModel> schedules;
+    protected IEnumerable<StatusGroupDurationModel> StatusGroupDurationData;
+    protected IEnumerable<LogDurationModel> LogDurationData;
+    protected IEnumerable<LogDurationModel> NokAlertData;
+    protected IEnumerable<LogDurationModel> SkewingAlertData;
+    protected IEnumerable<ActivityReportModel> ActivityReportData;
+    protected GaugeParameterModel gaugeParameterOOE;
+    protected GaugeParameterModel gaugeParameterOEE;
+
+    //todo pl model
+
+
+    protected IEnumerable<GaugeTickPosition> tickPositions = Enum.GetValues(typeof(GaugeTickPosition)).Cast<GaugeTickPosition>();
+    protected GaugeTickPosition tickPosition = GaugeTickPosition.Outside;
+    protected bool loadGauge = false;
+    protected bool busy;
+    protected DateTime startTime = DateTime.Now.AddDays(-1);
+    protected DateTime endTime = DateTime.Now;
+    protected double seconds = 0;
+    protected DateTime scheduleStart = new DateTime(2020, 01, 01,00,00,00);
+    protected DateTime scheduleEnd =new DateTime(2020, 01, 01, 23,00,00);
+
+    protected TimeSpan selectedStartTime;
+    protected TimeSpan selectedEndTime;
+
+    protected string trgAlert = "";
+    protected string trsAlert = "";
+    protected string startTimeString;
+    protected string endTimeString;
+    protected string scheduleStartString;
+    protected string scheduleEndString;
+    protected double totalSecond;
+    protected int? nokCount;
+    protected int? skewingCount;
+    protected   ScheduleParameterModel selectModel=new ScheduleParameterModel();
+    protected   string selectedTab = "costum";
+
+    private Task OnSelectedTabChanged( string name )
+    {
+        selectedTab = name;
+
+        return Task.CompletedTask;
+    }
+    async Task  ScheduleChangedHandler( int newValue )
+    {
+        selectedScheduleValue = newValue;
+        selectModel = await _scheduleRepo.Get(Endpoint.ScheduleParameterEnpoint+"/", selectedScheduleValue);
+        selectedStartTime = selectModel.Start;
+        selectedEndTime = selectModel.End;
+        StateHasChanged();
+    }
+    #endregion
+    protected async Task OnTimeChange(DateTime? value, string name, string format)
+    {
+        SetCalenderValues();
+        collapse = false;
+    }
+
+    #region loading
+    protected Task SetPageProgressIndeterminate()
+    {
+        return PageProgressService.Go(null, options => { options.Color = Color.Warning; });
+    }
+    protected Task SetPageProgressHidden()
+    {
+        return PageProgressService.Go(-1);
+    }
+    #endregion
+
+    protected async Task SetGauge()
+    {
+        gaugeParameterOEE = await _gaugeRepo.Get(Endpoint.GaugeParameterEnpoint+ $"/", 1);
+        gaugeParameterOOE = await _gaugeRepo.Get(Endpoint.GaugeParameterEnpoint+ $"/", 2);
+
+        stepOOE = gaugeParameterOOE.step;
+        stepOEE=gaugeParameterOEE.step;
+
+        startAngleOOE = gaugeParameterOOE.StartAngle;
+        startAngleOEE = gaugeParameterOEE.StartAngle;
+
+        endAngleOOE = gaugeParameterOOE.EndAngle;
+        endAngleOEE = gaugeParameterOEE.EndAngle;
+
+        breakpoint1OOE = gaugeParameterOOE.Breakpoint1;
+        breakpoint1OEE = gaugeParameterOEE.Breakpoint1;
+
+        breakpoint2OOE = gaugeParameterOOE.Breakpoint2;
+        breakpoint1OEE=gaugeParameterOEE.Breakpoint2;
+    }
+    //protected async override Task OnParametersSetAsync()
+    //{
+    //    totalSecond = 0;
+    //    seconds = (endTime - startTime).TotalSeconds;
+    //    SetPageProgressIndeterminate();      
+    //    SetCalenderValues();
+    //    GetTrg();
+    //    GetTrs();
+    //    await SetGauge();
+    //    await GetStatusCategories();
+    //    UpdateStatusGroupChart();
+    //    await GetNokAlertValues();
+    //    await GetSkewingAlertValues();
+    //    await GetNokNumber();
+    //    UpdateNokAlertChart();
+    //    await GetStatusDuartionValues();
+    //    UpdateStatusChart();
+    //    img= await _imageRepo.GetByLastLog();
+    //    if (img != null)
+    //    {
+    //        imageBase64Data = Convert.ToBase64String(img.FileContent);
+    //        imageDataURL = string.Format("data:image/jpg;base64,{0}", imageBase64Data);
+    //    }
+    //    else
+    //    {
+    //        imageDataURL = "https://www.universretail.com/wp-content/themes/consultix/images/no-image-found-360x250.png";
+    //    }
+    //    SetPageProgressHidden();
+    //}
+    protected  async override Task OnInitializedAsync()
+    {
+        totalSecond = 0;
+        seconds = (endTime - startTime).TotalSeconds;
+        loadGauge = true;
+        IReadOnlyList<DateTime?> startEnd = new DateTime?[] { DateTime.Now.AddDays( -3 ), DateTime.Now.AddDays( 3 ) };
+    }
+    protected async override Task OnAfterRenderAsync(bool firstRender)
+    {
+
+
+        if(firstRender)
+        {
+
+            schedules= await _scheduleRepo.GetAllScheduleParameter(Endpoint.ScheduleParameterEnpoint);
+            StateHasChanged();
+            if(schedules!=null){
+
+            ScheduleData = schedules.Select( x => new ScheduleParameterModel { Name = x.Name, Id = x.Id, Start=x.Start, End=x.End } );
+            }
+
+            StateHasChanged();
+            totalSecond = 0;
+            seconds = (endTime - startTime).TotalSeconds;
+            SetPageProgressIndeterminate();
+
+
+            SetCalenderValues();
+            GetTrg();
+            GetTrs();
+            await SetGauge();
+
+            // StatusList = await _status.GetStatusList(Endpoint.StatusSimpleEndpoint);
+            await GetStatusCategories();
+            UpdateStatusGroupChart();
+
+            //await GetActivityReport();
+            //UpdateActivityReportChart();
+
+            await GetNokAlertValues();
+            await GetSkewingAlertValues();
+            await GetNokNumber();
+
+            UpdateNokAlertChart();
+
+            await GetStatusDuartionValues();
+            UpdateStatusChart();
+            img= await _imageRepo.GetByLastLog();
+            if (img != null)
+            {
+                imageBase64Data = Convert.ToBase64String(img.FileContent);
+                imageDataURL = string.Format("data:image/jpg;base64,{0}", imageBase64Data);
+                //StateHasChanged();
+
+            }
+            else
+            {
+                imageDataURL = "https://www.universretail.com/wp-content/themes/consultix/images/no-image-found-360x250.png";
+                //StateHasChanged();
+            }
+
+
+            SetPageProgressHidden();
+        } 
+
+    }
+
+    protected async Task ClickCalenderValidate()
+    {
+        totalSecond = 0;
+
+        busy = true;
+        seconds = (endTime - startTime).TotalSeconds;
+        Console.WriteLine(seconds.ToString());
+        SetPageProgressIndeterminate();
+        SetCalenderValues();
+        GetTrg();
+        GetTrs();
+
+        //StatusGroupDurationData = await _statusGroupDuration.GetStatusGroupDuration(Endpoint.StatusGroupDurationEndpoint + $"?{startTimeString}&{endTimeString}&{scheduleStartString}&{scheduleEndString}");
+        await GetStatusCategories();
+        UpdateStatusGroupChart();
+        //await GetActivityReport();
+        //UpdateActivityReportChart();
+        await GetNokAlertValues();
+        await GetNokNumber();
+        await GetSkewingAlertValues();
+        UpdateNokAlertChart();
+
+        await GetStatusDuartionValues();
+        UpdateStatusChart();
+        SetPageProgressHidden();
+        collapse = false;
+
+        if (nokCount == 0 && skewingCount == 0)
+        {
+            collapseAlarm = true;
+        }
+        collapseAlarm = false;
+
+        busy = false;
+
+    }
+
+
+    protected double CalculateTotalSecond()
+    {
+        totalSecond = 0;
+        foreach(StatusDurationModel item in StatusDurationData)
+        {
+            totalSecond = totalSecond + item.Duration;
+        }
+        return totalSecond;
+    }
+    protected async Task GetStatusCategories()
+    {
+        StatusGroupDurationData= await _statusGroupDuration.GetStatusGroupDuration(Endpoint.StatusGroupDurationEndpoint+ $"?{startTimeString}&{endTimeString}&{scheduleStartString}&{scheduleEndString}");
+    }
+
+    protected async Task GetActivityReport()
+    {
+        ActivityReportData= await _activityReport.GetActivityReport(Endpoint.ActivityReportEndpoint+ $"?{startTimeString}&{endTimeString}");
+    }
+
+    protected async Task GetStatusDuartionValues()
+    {
+        StatusDurationData = await _statusDuration.GetStatusDuration(Endpoint.StatusDurationEndpoint + $"?{startTimeString}&{endTimeString}&{scheduleStartString}&{scheduleEndString}");  
+    }
+
+    protected async Task GetNokAlertValues()
+    {
+        NokAlertData = await _logDuration.GetNokAlert(Endpoint.NokAlertEndpoint + $"?{startTimeString}&{endTimeString}");
+    }
+    protected async Task GetNokNumber()
+    {
+        nokCount = await _logDuration.GetNokNumber(Endpoint.NokNumberEndpoint + $"?{startTimeString}&{endTimeString}");
+    }
+
+    protected async Task GetSkewingAlertValues()
+    {
+        SkewingAlertData =null;
+        SkewingAlertData = await _logDuration.GetSkewingAlert(Endpoint.SkewingAlertEndpoint + $"?{startTimeString}&{endTimeString}");
+        if(SkewingAlertData is null){
+            skewingCount = 0;
+        }
+        else
+        {
+            skewingCount = SkewingAlertData.Count();
+        }
+    }
+
+    protected async Task GetSchedules()
+    {
+
+    }
+    //protected async Task UpdateActivityReportChart()
+    //{
+    //    JsRuntime.InvokeVoidAsync("cleanActivityReportChartChildren");
+    //    JsRuntime.InvokeVoidAsync("drawHistoricalReportChart", ActivityReportData);
+    //}
+
+    protected async Task UpdateStatusGroupChart()
+    {
+        JsRuntime.InvokeVoidAsync("cleanStatusGroupChartChildren");
+        JsRuntime.InvokeVoidAsync("drawStatusGroupChart", StatusGroupDurationData);
+    }
+    protected async Task UpdateStatusChart()
+    {
+
+        JsRuntime.InvokeVoidAsync("cleanStatusPieChartChildren");
+        JsRuntime.InvokeVoidAsync("drawStatusPieChart", StatusDurationData);
+    }
+    protected async Task UpdateNokAlertChart()
+    {
+        JsRuntime.InvokeVoidAsync("cleanNokAlarmChartChildren");
+
+        JsRuntime.InvokeVoidAsync("drawAlarmChart", NokAlertData,SkewingAlertData, seconds, startTime.AddDays(-1).ToString("s"), endTime.AddDays(1).ToString("s"));
+    }
+    protected async Task SetCalenderValues()
+    {
+        startTimeString = "start=" + startTime.ToString("yyyy-MM-dd HH:mm:ss");
+        endTimeString = "end=" + endTime.ToString("yyyy-MM-dd HH:mm:ss");
+        //scheduleStartString = "scheduleStart=" + scheduleStart.ToString("HH:mm:ss");
+        //scheduleEndString = "scheduleEnd=" + scheduleEnd.ToString("HH:mm:ss");
+        scheduleStartString = "scheduleStart=" + selectedStartTime.ToString();
+        scheduleEndString = "scheduleEnd=" + selectedEndTime.ToString();
+
+    }
+    protected async Task GetTrg()
+    {
+        trg = await client.GetFromJsonAsync<double>(Endpoint.trgEndpoint + $"?{startTimeString}&{endTimeString}&{scheduleStartString}&{scheduleEndString}");
+        Console.WriteLine(trg.ToString());
+        if (trg > 1)
+        {
+            trg = 1;
+        }
+        trg = Math.Round(trg * 100,0);
+
+
+    }
+    protected async Task GetTrs()
+    {
+        trs = await client.GetFromJsonAsync<double>(Endpoint.trsEndpoint + $"?{startTimeString}&{endTimeString}&{scheduleStartString}&{scheduleEndString}");
+        trs = Math.Round(trs * 100,0);
+    }
+
+    protected async Task GetObjectifNumberProgress()
+    {
+
+    }
+
+    public void SetOneHour()
+    {
+        endTime = DateTime.Now;
+        startTime = endTime.AddHours(-1);
+        StateHasChanged();
+    }
+    public void SetTwoHours()
+    {
+        endTime = DateTime.Now;
+        startTime = endTime.AddHours(-2);
+        StateHasChanged();
+    }
+    public void SetFourHours()
+    {
+        endTime = DateTime.Now;
+        startTime = endTime.AddHours(-4);
+        StateHasChanged();
+
+    }
+    public void SetEightHours()
+    {
+        endTime = DateTime.Now;
+        startTime = endTime.AddHours(-8);
+        StateHasChanged();
+
+    }
+    public void SetTwelveHours()
+    {
+        endTime = DateTime.Now;
+        startTime = endTime.AddHours(-12);
+        StateHasChanged();
+
+    }
+    public void SetOneDay()
+    {
+        endTime = DateTime.Now;
+        startTime = endTime.AddDays(-1);
+        StateHasChanged();
+
+    }
+    public void SetOneWeek()
+    {
+        endTime = DateTime.Now;
+        startTime = endTime.AddDays(-7);
+        StateHasChanged();
+
+    }
+    public void SetOneMonth()
+    {
+        endTime = DateTime.Now;
+        startTime = endTime.AddMonths(-1);
+        StateHasChanged();
+
+    }
+}

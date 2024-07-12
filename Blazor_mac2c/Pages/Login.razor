@@ -1,0 +1,116 @@
+﻿@page "/login"
+
+@using System.Globalization
+@using System.Net.Http
+@using Radzen
+@using Radzen.Blazor
+@using System.Linq.Dynamic.Core
+@using Blazor_mac2c.Models
+@using Blazor_mac2c.Endpoint
+@using Blazor_mac2c.Contracts
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IAuthenticationRepository _authRepo
+@inject NavigationManager _navManager
+@inject NotificationService NotificationService
+@inject IPageProgressService PageProgressService
+<h3>Login</h3>
+
+@if (!response)
+{
+    <ErrorMessage Message="
+Please verify your password" />
+}
+
+
+<div class="container my-4"> 
+    <div class="row">
+        <div class="col-lg-6 offset-lg-3">
+                <RadzenFieldset Text="Please fill the form">
+                    <RadzenTemplateForm TItem="LoginModel" Data=@Model Submit=@HandleLogin>
+                    <div class="row mb-5">
+                        <div class="col-md-4" style="align-self: center;">
+                            <RadzenLabel Text="Email" />
+                        </div>
+                        <div class="col">
+                            <RadzenTextBox style="display: block" Name="Email" @bind-Value=@Model.UserName Class="w-100"/>
+                            <RadzenRequiredValidator Component="Email" Text="Email is required" Popup="true" Style="position: absolute" />
+                        </div>                        
+                    </div>
+                    <div class="row mb-5">
+                        <div class="col-md-4" style="align-self: center;">
+                            <RadzenLabel Text=" Password" />
+                        </div>                        
+                        <div class="col">
+                          <RadzenPassword style="display: block" Name="Password" @bind-Value=@Model.Password Class="w-100"/>
+                          <RadzenRequiredValidator Component="Password" Text="Enter password" />
+                        </div>                        
+                    </div>              
+                    <div class="row mb-5">
+                        <div class="col-md-4" style="align-self: center;"></div>
+                        <div class="col">
+                            <RadzenButton ButtonStyle="ButtonStyle.Info" BusyText="Invoking ..." IsBusy=@busy ButtonType="Radzen.ButtonType.Submit" Text="Submit"Class="w-100"/>
+                        </div>
+                    </div>  
+                    </RadzenTemplateForm>
+                     <div class="row mb-5">
+                        <div class="col-md-4" style="align-self: center;"></div>
+                        <div class="col" style="align-self: center;">
+                            <RadzenButton ButtonStyle="ButtonStyle.Primary" BusyText="Invoking ..." IsBusy=@busy Text="Forgot password" Click=@NavigateToResetPwd Class="w-100"/>
+                        </div>
+                    </div>  
+                </RadzenFieldset>
+
+        </div>
+    </div>
+</div>
+
+@code{
+    protected bool busy;
+    protected LoginModel Model = new LoginModel();
+    protected bool response = true;
+    protected async Task HandleLogin()
+    {
+        busy = true;
+        SetPageProgressIndeterminate();
+
+        response = await _authRepo.Login(Model);
+
+        if (response)
+        {
+            _navManager.NavigateTo("/");
+        }
+        else
+        {
+            NotificationMessage failure = new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Error,
+                    Summary = $"Something wrong when trying to log in {Model.UserName} ",
+                    Detail = $"Something wrong when trying to log in {Model.UserName}, please verify your Username and password ",
+                    Duration = 4000
+                };
+            NotificationService.Notify(failure);
+        }
+        SetPageProgressHidden();
+
+        busy = false;
+
+    }
+    protected void NavigateToResetPwd()
+    {
+        busy = true;
+        _navManager.NavigateTo("/forgotpassword");
+        busy = false;
+
+    }
+    #region loading
+    protected Task SetPageProgressIndeterminate()
+    {
+        return PageProgressService.Go(null, options => { options.Color = Color.Warning; });
+    }
+    protected Task SetPageProgressHidden()
+    {
+        return PageProgressService.Go(-1);
+    }
+    #endregion
+}

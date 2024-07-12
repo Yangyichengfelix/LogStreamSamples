@@ -1,0 +1,12 @@
+﻿@page "/logout"
+@using Blazor_mac2c.Contracts
+@inject IAuthenticationRepository _authRepo
+@inject NavigationManager _navManager
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await _authRepo.Logout();
+        _navManager.NavigateTo("/");
+    }
+}

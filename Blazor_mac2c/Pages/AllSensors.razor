@@ -1,0 +1,144 @@
+﻿@page "/allsensors"
+@using System.Globalization
+@using System.Net.Http
+@using Radzen
+@using Radzen.Blazor
+@using System.Linq.Dynamic.Core
+@using Blazor_mac2c.Models
+@using Blazor_mac2c.Endpoint
+@using Blazor_mac2c.Contracts
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Blazorise.Charts
+@using Blazorise.Charts.Streaming
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager _navManager
+@inject ISensorGlobalRepository _sensorGlobalRepo
+@inject IPageProgressService PageProgressService
+@inject IJSRuntime JsRuntime
+@inject HttpClient client
+<h3>Global</h3>
+    <div class="container"style="background-color:rgba(220,220,220,0.3);">
+
+        <div class="row px-3">
+            <div class="col-md-6 col-lg-6 col-xl-6 p-3">
+                <div class="bg-warning">
+                <RadzenCard>
+                    <h4 class="mb-4">Start</h4>
+                    <RadzenDatePicker @bind-Value=@startTime DateFormat="yyyy-MM-dd HH:mm:ss" ShowTime="true" Change=@(args => OnTimeChange(args, "StartDatePicker", "MM/dd/yyyy")) Class="w-100" />
+                </RadzenCard>
+                </div>
+
+            </div>
+
+            <div class="col-md-6 col-lg-6 col-xl-6 p-3">
+                <RadzenCard>
+                    <h4 class="mb-4">End</h4>
+                    <RadzenDatePicker @bind-Value=@endTime DateFormat="yyyy-MM-dd HH:mm:ss" ShowTime="true" Change=@(args => OnTimeChange(args, "EndDatePicker", "MM/dd/yyyy")) Class="w-100" />
+                </RadzenCard>
+            </div>
+
+        </div>
+
+        <div class="row">
+            <div class="col-sm-12 my-5">
+                    <Div Position="Position.Absolute.Top.Is0.End.Is0">
+                        <RadzenButton ButtonStyle="ButtonStyle.Info"  Text="View data" Click="@ClickCalenderValidate" Class="w-100" BusyText="Invoking ..." IsBusy=@busy  />
+                    </Div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-xl-12">
+                <RadzenFieldset Text="Sensors" AllowCollapse="true" Style="border-radius:10px;">
+                    <ChildContent>
+
+                        <svg class="w-100" id="allsensors_chart"/>
+                        <div id="sensors_tooltip"></div>
+                    </ChildContent>    
+                    <SummaryTemplate>
+                        <RadzenCard class="mt-3">
+                            <b>Sensors </b>
+                        </RadzenCard>
+                    </SummaryTemplate>
+                </RadzenFieldset>
+            </div>
+        </div>
+    </div>
+@code {
+    protected bool busy;
+    protected DateTime startTime = DateTime.UtcNow.AddDays(-0.5);
+    protected DateTime endTime = DateTime.UtcNow;
+    protected double seconds = 0;
+
+    protected string startTimeString;
+    protected string endTimeString;
+
+    protected double totalSecond;
+    protected IEnumerable<SensorGlobalModel> sensorGlobalData;
+
+    protected async Task OnTimeChange(DateTime? value, string name, string format)
+    {
+        SetCalenderValues();
+    }
+    protected Task SetPageProgressIndeterminate()
+    {
+        return PageProgressService.Go(null, options => { options.Color = Color.Warning; });
+    }
+    protected Task SetPageProgressHidden()
+    {
+        return PageProgressService.Go(-1);
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        totalSecond = 0;
+
+        seconds = (endTime - startTime).TotalSeconds;
+        SetPageProgressIndeterminate();
+        SetCalenderValues();
+        await GetSensorsValues();
+        SetPageProgressHidden();
+    }
+
+    protected async override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if(firstRender)
+        totalSecond = 0;
+        seconds = (endTime - startTime).TotalSeconds;
+        SetPageProgressIndeterminate();
+        SetCalenderValues();
+        await GetSensorsValues();
+        UpdateSensorChart();
+        SetPageProgressHidden();
+    }
+
+    protected async Task ClickCalenderValidate()
+    {
+        totalSecond = 0;
+        busy = true;
+        seconds = (endTime - startTime).TotalSeconds;
+        SetPageProgressIndeterminate();
+        SetCalenderValues();
+        await GetSensorsValues();
+        UpdateSensorChart();
+        SetPageProgressHidden();
+        busy = false;
+
+    }
+    protected async Task UpdateSensorChart()
+    {
+        JsRuntime.InvokeVoidAsync("cleanAllSensorChartChildren");
+        JsRuntime.InvokeVoidAsync("drawAllSensorsChart", sensorGlobalData, seconds);
+    }
+    protected async Task GetSensorsValues()
+    {
+        sensorGlobalData = await _sensorGlobalRepo.GetValues(Endpoint.SenorsGlobalEndpoint+$"?{startTimeString}&{endTimeString}");
+        JsRuntime.InvokeVoidAsync("drawAllSensorsChart", sensorGlobalData, seconds);
+    }
+    protected async Task SetCalenderValues()
+    {
+        startTimeString = "start=" + startTime.ToString("yyyy-MM-dd HH:mm:ss");
+        endTimeString = "end=" + endTime.ToString("yyyy-MM-dd HH:mm:ss");
+
+    }
+}
